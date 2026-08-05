@@ -1,0 +1,473 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="logo2.jpg">
+    <title>Active Issued Books</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        :root {
+            --bs-body-bg: #f8f9fa;
+            --bs-body-color: #212529;
+            --card-bg: #ffffff;
+            --primary-color: #4e73df;
+            --secondary-color: #858796;
+            --success-color: #1cc88a;
+            --danger-color: #e74a3b;
+            --warning-color: #f6c23e;
+            --info-color: #36b9cc;
+        }
+        [data-bs-theme="dark"] {
+            --bs-body-bg: #1a1a2e;
+            --bs-body-color: #f8f9fa;
+            --card-bg: #16213e;
+            --primary-color: #5a67d8;
+            --secondary-color: #a0aec0;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --info-color: #3b82f6;
+        }
+        body {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            transition: all 0.3s ease;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .btn-primary:hover {
+            background-color: #3a56c7;
+            border-color: #3a56c7;
+        }
+        .form-control, .form-select {
+            background-color: var(--card-bg);
+            color: var(--bs-body-color);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: var(--card-bg);
+            color: var(--bs-body-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+        }
+        .search-card {
+            border-left: 0.25rem solid var(--primary-color) !important;
+        }
+        .back-btn:hover {
+            transform: translateX(-3px);
+            transition: all 0.3s;
+        }
+        .theme-toggle:hover {
+            transform: rotate(15deg);
+            transition: all 0.3s;
+        }
+        .table {
+            background-color: var(--card-bg);
+            color: var(--bs-body-color);
+        }
+        .table th {
+            border-bottom-width: 1px;
+            border-top: none;
+            background-color: rgba(78, 115, 223, 0.1);
+            color: var(--primary-color);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+        .table td {
+            vertical-align: middle;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        .student-name { font-weight: 500; }
+        .record-info { font-size: 0.875rem; color: var(--secondary-color); }
+        .status-badge {
+            padding: 0.35em 0.65em;
+            border-radius: 0.25rem;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-block;
+            min-width: 80px;
+            text-align: center;
+        }
+        .status-issued { background-color: var(--success-color); color: white; }
+        .status-overdue { background-color: var(--warning-color); color: #000; }
+        .status-defaulter { background-color: var(--danger-color); color: white; }
+        .status-returned { background-color: var(--info-color); color: white; }
+        .filter-label { font-weight: 500; font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .dataTables_wrapper .dataTables_filter input {
+            background-color: var(--card-bg);
+            color: var(--bs-body-color);
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 0.35rem;
+            padding: 0.375rem 0.75rem;
+        }
+        .dataTables_wrapper .dataTables_length select {
+            background-color: var(--card-bg);
+            color: var(--bs-body-color);
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 0.35rem;
+        }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <button class="btn btn-outline-primary back-btn no-print" onclick="window.history.back()">
+                        <i class="fas fa-arrow-left me-2"></i>Back
+                    </button>
+                    <h2 class="text-center mb-0 fw-bold" style="color: var(--primary-color);">
+                        <i class="fas fa-book-open me-2"></i>Active Issued Books
+                    </h2>
+                    <div class="d-flex gap-2 no-print">
+                        <button class="btn btn-outline-success" id="printPdfBtn"><i class="fas fa-file-pdf me-2"></i>Print</button>
+                        <button id="themeToggle" class="btn btn-outline-secondary theme-toggle"><i class="fas fa-moon"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4 no-print">
+            <div class="col-12">
+                <div class="card shadow-sm search-card">
+                    <div class="card-body py-3">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-2">
+                                <label for="crnFilter" class="filter-label">CRN</label>
+                                <input type="text" class="form-control" id="crnFilter" placeholder="Search CRN">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="studentNameFilter" class="filter-label">Student Name</label>
+                                <input type="text" class="form-control" id="studentNameFilter" placeholder="Search Name">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="courseFilter" class="filter-label">Course</label>
+                                <select class="form-select" id="courseFilter">
+                                    <option value="">All Courses</option>
+                                    <option value="BCA">BCA</option>
+                                    <option value="BBA">BBA</option>
+                                    <option value="BTech">B. Tech</option>
+                                    <option value="MCA">MCA</option>
+                                    <option value="MBA">MBA</option>
+                                    <option value="PTech">PolyTech</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="fromDate" class="filter-label">From Date</label>
+                                <input type="date" class="form-control" id="fromDate">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="toDate" class="filter-label">To Date</label>
+                                <input type="date" class="form-control" id="toDate">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button class="btn btn-primary w-100 me-2" id="applyFilter"><i class="fas fa-filter me-1"></i>Apply</button>
+                                <button class="btn btn-secondary w-100" id="resetFilter"><i class="fas fa-undo me-1"></i>Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover w-100" id="bookIssuesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Issue ID</th>
+                                        <th>CRN</th>
+                                        <th>Student Name</th>
+                                        <th>Contact</th>
+                                        <th>Course</th>
+                                        <th>Accession No</th>
+                                        <th>Book Title</th>
+                                        <th>Author</th>
+                                        <th>Edition</th>
+                                        <th>Issue Date</th>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>Fine (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                            <div id="recordInfo" class="record-info"></div>
+                            <nav><ul class="pagination mb-0" id="pagination"></ul></nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Theme toggle
+            const themeToggle = document.getElementById('themeToggle');
+            if (localStorage.getItem('theme') === 'dark') {
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            }
+            themeToggle.addEventListener('click', function() {
+                if (document.documentElement.getAttribute('data-bs-theme') === 'dark') {
+                    document.documentElement.setAttribute('data-bs-theme', 'light');
+                    themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.setAttribute('data-bs-theme', 'dark');
+                    themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+                    localStorage.setItem('theme', 'dark');
+                }
+                table.ajax.reload(null, false);
+            });
+
+            // DataTable
+            const table = $('#bookIssuesTable').DataTable({
+                ajax: {
+                    url: 'ViewIssuedBooks',
+                    type: 'POST',
+                    data: function(d) {
+                        d.crn = $('#crnFilter').val();
+                        d.studentName = $('#studentNameFilter').val();
+                        d.course = $('#courseFilter').val();
+                        d.fromDate = $('#fromDate').val();
+                        d.toDate = $('#toDate').val();
+                    },
+                    dataSrc: function(json) {
+                        if (json.success) return json.data;
+                        else { console.error(json.message); return []; }
+                    }
+                },
+                columns: [
+                    { data: 'issueId' },
+                    { data: 'crn' },
+                    { data: 'studentName' },
+                    { data: 'contact' },
+                    { data: 'course' },
+                    { data: 'accessionNumber' },
+                    { data: 'bookTitle' },
+                    { data: 'author' },
+                    { data: 'edition' },
+                    { 
+                        data: 'issueDate',
+                        render: function(d) { return d ? new Date(d).toLocaleDateString('en-IN') : 'N/A'; }
+                    },
+                    { 
+                        data: 'dueDate',
+                        render: function(d) { return d ? new Date(d).toLocaleDateString('en-IN') : 'N/A'; }
+                    },
+                    { 
+                        data: 'status',
+                        render: function(d) {
+                            let cls = 'status-issued';
+                            if (d && d.toUpperCase() === 'OVERDUE') cls = 'status-overdue';
+                            else if (d && d.toUpperCase() === 'DEFAULTER') cls = 'status-defaulter';
+                            else if (d && d.toUpperCase() === 'RETURNED') cls = 'status-returned';
+                            return '<span class="status-badge ' + cls + '">' + (d || 'ISSUED') + '</span>';
+                        }
+                    },
+                    { 
+                        data: null,
+                        render: function(row) {
+                            if (row.status === 'OVERDUE' && row.dueDate) {
+                                const due = new Date(row.dueDate), today = new Date();
+                                const days = Math.ceil((today - due) / (1000*60*60*24));
+                                return Math.ceil(days / 7) * 50;
+                            }
+                            return '0';
+                        }
+                    }
+                ],
+                responsive: true,
+                scrollX: true,
+                scrollCollapse: true,
+                scrollY: '60vh',
+                language: {
+                    emptyTable: "No active book issue records found",
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search...",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                    infoEmpty: "Showing 0 to 0 of 0 entries",
+                    infoFiltered: "(filtered from _MAX_ total entries)",
+                    paginate: {
+                        first: "First",
+                        last: "Last",
+                        next: "Next",
+                        previous: "Previous"
+                    }
+                },
+                dom: '<"top"<"d-flex justify-content-between align-items-center"lf>>rt<"bottom"<"d-flex justify-content-between align-items-center"ip>>',
+                initComplete: function() {
+                    $('.dataTables_filter input').attr('placeholder', 'Search...');
+                }
+            });
+
+            // Apply filters
+            $('#applyFilter').click(function() { table.ajax.reload(); });
+            $('#resetFilter').click(function() {
+                $('#crnFilter, #studentNameFilter, #fromDate, #toDate').val('');
+                $('#courseFilter').val('');
+                table.ajax.reload();
+            });
+            $('.filter-container input, .filter-container select').on('keypress change', function(e) {
+                if (e.which === 13 || e.type === 'change') $('#applyFilter').click();
+            });
+
+            // ---- PDF Generation (same as studentRecords.jsp) ----
+            $('#printPdfBtn').click(function() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'pt', 'a4');
+                const logoUrl = 'logo2.jpg';
+                const img = new Image();
+                img.src = logoUrl;
+
+                img.onload = function() {
+                    const maxWidth = 100;
+                    const ratio = maxWidth / img.width;
+                    const logoWidth = maxWidth;
+                    const logoHeight = img.height * ratio;
+                    doc.addImage(img, 'JPEG', 40, 20, logoWidth, logoHeight);
+                    doc.setFontSize(18);
+                    doc.setTextColor(40);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Active Issued Books Report", 40 + logoWidth + 20, 20 + (logoHeight / 2));
+                    const now = new Date();
+                    doc.setFontSize(10);
+                    doc.setFont("helvetica", "normal");
+                    doc.text("Generated on: " + now.toLocaleString(), 40 + logoWidth + 20, 20 + (logoHeight / 2) + 20);
+                    doc.setDrawColor(200,200,200);
+                    doc.line(40, 20 + logoHeight + 20, doc.internal.pageSize.width - 40, 20 + logoHeight + 20);
+
+                    const headers = ["Issue ID", "CRN", "Student", "Contact", "Course", "Accession", "Title", "Author", "Edition", "Issue Date", "Due Date", "Status", "Fine"];
+                    const data = [];
+                    $('#bookIssuesTable tbody tr').each(function() {
+                        const rowData = [];
+                        $(this).find('td').each(function() {
+                            let text = $(this).text().trim();
+                            // If status badge, get text
+                            if ($(this).find('.status-badge').length) {
+                                text = $(this).find('.status-badge').text().trim();
+                            }
+                            rowData.push(text);
+                        });
+                        if (rowData.length > 0 && rowData[0] !== 'No active book issue records found') {
+                            data.push(rowData);
+                        }
+                    });
+
+                    doc.autoTable({
+                        startY: 20 + logoHeight + 40,
+                        head: [headers],
+                        body: data,
+                        styles: { fontSize: 8, cellPadding: 3 },
+                        headStyles: { fillColor: [78,115,223], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                        columnStyles: {
+                            0: { halign: 'center' },
+                            1: { halign: 'center' },
+                            5: { halign: 'center' },
+                            12: { halign: 'right' }
+                        },
+                        margin: { top: 20 + logoHeight + 40, left: 40, right: 40 },
+                        didDrawPage: function(data) {
+                            doc.setFontSize(10);
+                            doc.setTextColor(150);
+                            doc.text('Page ' + data.pageNumber + ' of ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 20);
+                        }
+                    });
+                    doc.save("Active_Issued_Books_" + new Date().toISOString().slice(0,10) + ".pdf");
+                    Swal.fire({ icon: 'success', title: 'PDF Generated', text: 'Active issued books exported', timer: 2000, showConfirmButton: false });
+                };
+
+                img.onerror = function() {
+                    Swal.fire({ icon: 'warning', title: 'Logo not found', text: 'Generating PDF without logo' });
+                    // Fallback without logo (same as studentRecords.jsp)
+                    let yPos = 40;
+                    doc.setFontSize(18);
+                    doc.setTextColor(40);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Active Issued Books Report", 40, yPos);
+                    yPos += 30;
+                    const now = new Date();
+                    doc.setFontSize(10);
+                    doc.setFont("helvetica", "normal");
+                    doc.text("Generated on: " + now.toLocaleString(), 40, yPos);
+                    yPos += 20;
+                    doc.setDrawColor(200,200,200);
+                    doc.line(40, yPos, doc.internal.pageSize.width - 40, yPos);
+                    yPos += 20;
+
+                    const headers = ["Issue ID", "CRN", "Student", "Contact", "Course", "Accession", "Title", "Author", "Edition", "Issue Date", "Due Date", "Status", "Fine"];
+                    const data = [];
+                    $('#bookIssuesTable tbody tr').each(function() {
+                        const rowData = [];
+                        $(this).find('td').each(function() {
+                            let text = $(this).text().trim();
+                            if ($(this).find('.status-badge').length) {
+                                text = $(this).find('.status-badge').text().trim();
+                            }
+                            rowData.push(text);
+                        });
+                        if (rowData.length > 0 && rowData[0] !== 'No active book issue records found') {
+                            data.push(rowData);
+                        }
+                    });
+
+                    doc.autoTable({
+                        startY: yPos,
+                        head: [headers],
+                        body: data,
+                        styles: { fontSize: 8, cellPadding: 3 },
+                        headStyles: { fillColor: [78,115,223], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                        columnStyles: {
+                            0: { halign: 'center' },
+                            1: { halign: 'center' },
+                            5: { halign: 'center' },
+                            12: { halign: 'right' }
+                        },
+                        margin: { top: yPos, left: 40, right: 40 },
+                        didDrawPage: function(data) {
+                            doc.setFontSize(10);
+                            doc.setTextColor(150);
+                            doc.text('Page ' + data.pageNumber + ' of ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 20);
+                        }
+                    });
+                    doc.save("Active_Issued_Books_" + new Date().toISOString().slice(0,10) + ".pdf");
+                    Swal.fire({ icon: 'success', title: 'PDF Generated', text: 'PDF created without logo', timer: 2000, showConfirmButton: false });
+                };
+            });
+        });
+    </script>
+</body>
+</html>
