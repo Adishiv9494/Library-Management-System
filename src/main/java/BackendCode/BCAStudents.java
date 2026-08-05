@@ -20,11 +20,10 @@ public class BCAStudents extends HttpServlet {
         response.setContentType("text/html");
         PrintWriter out = response.getWriter();
 
-        String dbURL = "private static final String DB_URL = \"jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC\";\r\n"
-        		+ "private static final String DB_USER = \"avnadmin\";\r\n"
-        		+ "private static final String DB_PASS = \"AVNS_M_y84BDpUY38oAAS0w1\";;";
+        String dbURL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
         String dbUser = "avnadmin";
         String dbPassword = "HIDDEN_PASSWORD";
+        
 
         int successCount = 0;
         int duplicateCount = 0;
