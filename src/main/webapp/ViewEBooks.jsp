@@ -28,7 +28,6 @@
             --card-bg: #ffffff;
             --primary-gradient: linear-gradient(135deg, #4e73df, #224abe);
             --primary-color: #4e73df; 
-            --hover-bg: #f8fcfb;
             --border-color: rgba(0,0,0,0.05);
         }
         
@@ -92,22 +91,10 @@
                 
                 try {
                     Class.forName("com.mysql.cj.jdbc.Driver");
-                    // FIXED: Pointed to Aiven Cloud Database where the Admin uploads the E-Books
                     conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
                     
-                    // Create table safely if it doesn't exist to prevent crash before first upload
-                    String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (" +
-                                            "id INT AUTO_INCREMENT PRIMARY KEY, " +
-                                            "title VARCHAR(255) NOT NULL, " +
-                                            "author VARCHAR(255) NOT NULL, " +
-                                            "edition VARCHAR(100), " +
-                                            "description TEXT, " +
-                                            "pdf_url VARCHAR(500) NOT NULL, " +
-                                            "uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                                            ")";
-                    try (Statement stmt = conn.createStatement()) {
-                        stmt.execute(createTableSQL);
-                    }
+                    String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, author VARCHAR(255) NOT NULL, edition VARCHAR(100), description TEXT, pdf_url VARCHAR(500) NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)";
+                    try (Statement stmt = conn.createStatement()) { stmt.execute(createTableSQL); }
                     
                     String query = "SELECT id, title, author, description, pdf_url FROM ebooks ORDER BY id DESC"; 
                     pstmt = conn.prepareStatement(query);
@@ -135,11 +122,11 @@
                             <%= desc != null ? desc : "No description available." %>
                         </div>
                         <div class="action-buttons">
-                            <!-- Direct PDF Path -->
-                            <button class="btn btn-view" onclick="openPdfViewer('<%= safeTitle %>', '<%= pdfUrl %>')">
+                            <!-- Passing the context path directly to the script -->
+                            <button class="btn btn-view" onclick="openPdfViewer('<%= safeTitle %>', '<%= request.getContextPath() %>', '<%= pdfUrl %>')">
                                 <i class="fas fa-eye me-1"></i> View
                             </button>
-                            <button class="btn btn-download" onclick="downloadEBook('<%= id %>', '<%= safeTitle %>', '<%= safeAuthor %>', '<%= pdfUrl %>')">
+                            <button class="btn btn-download" onclick="downloadEBook('<%= id %>', '<%= safeTitle %>', '<%= safeAuthor %>', '<%= request.getContextPath() %>', '<%= pdfUrl %>')">
                                 <i class="fas fa-download me-1"></i> Save
                             </button>
                         </div>
@@ -181,48 +168,43 @@
     <script>
         const themeToggle = document.getElementById('themeToggle');
         const root = document.documentElement;
-        if (localStorage.getItem('theme') === 'dark') {
-            root.setAttribute('data-bs-theme', 'dark');
-            themeToggle.innerHTML = '<i class="fas fa-sun text-warning"></i>';
-        }
+        if (localStorage.getItem('theme') === 'dark') { root.setAttribute('data-bs-theme', 'dark'); themeToggle.innerHTML = '<i class="fas fa-sun text-warning"></i>'; }
         themeToggle.addEventListener('click', function() {
-            if (root.getAttribute('data-bs-theme') === 'dark') {
-                root.setAttribute('data-bs-theme', 'light');
-                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-                localStorage.setItem('theme', 'light');
-            } else {
-                root.setAttribute('data-bs-theme', 'dark');
-                themeToggle.innerHTML = '<i class="fas fa-sun text-warning"></i>';
-                localStorage.setItem('theme', 'dark');
-            }
+            if (root.getAttribute('data-bs-theme') === 'dark') { root.setAttribute('data-bs-theme', 'light'); themeToggle.innerHTML = '<i class="fas fa-moon"></i>'; localStorage.setItem('theme', 'light'); } 
+            else { root.setAttribute('data-bs-theme', 'dark'); themeToggle.innerHTML = '<i class="fas fa-sun text-warning"></i>'; localStorage.setItem('theme', 'dark'); }
         });
 
-        function openPdfViewer(title, url) {
+        // FIXED: Handles the 404 issue by enforcing the context path prefix dynamically
+        function formatPdfUrl(context, url) {
+            if(url.startsWith('http://') || url.startsWith('https://')) return url;
+            let formattedUrl = url.startsWith('/') ? url : '/' + url;
+            if(context !== '' && !formattedUrl.startsWith(context)) {
+                formattedUrl = context + formattedUrl;
+            }
+            return formattedUrl;
+        }
+
+        function openPdfViewer(title, contextPath, rawUrl) {
+            let finalUrl = formatPdfUrl(contextPath, rawUrl);
             document.getElementById('pdfModalTitle').innerText = title;
-            document.getElementById('pdfViewer').src = url + "#toolbar=0&navpanes=0&scrollbar=0";
+            document.getElementById('pdfViewer').src = finalUrl + "#toolbar=0&navpanes=0&scrollbar=0";
             new bootstrap.Modal(document.getElementById('pdfModal')).show();
         }
 
-        document.getElementById('pdfModal').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('pdfViewer').src = "";
-        });
+        document.getElementById('pdfModal').addEventListener('hidden.bs.modal', function () { document.getElementById('pdfViewer').src = ""; });
 
-        function downloadEBook(ebookId, title, author, url) {
+        function downloadEBook(ebookId, title, author, contextPath, rawUrl) {
+            let finalUrl = formatPdfUrl(contextPath, rawUrl);
             $.post("LogDownload.jsp", { 
-                ebookId: ebookId,
-                title: title,
-                author: author,
-                pdfUrl: url
+                ebookId: ebookId, title: title, author: author, pdfUrl: finalUrl
             }, function(response) {
                 const link = document.createElement('a');
-                link.href = url;
+                link.href = finalUrl;
                 link.setAttribute('download', ''); 
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-            }).fail(function() {
-                alert("Failed to record download. Please try again.");
-            });
+            }).fail(function() { alert("Failed to record download. Please try again."); });
         }
     </script>
 </body>
