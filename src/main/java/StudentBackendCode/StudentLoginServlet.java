@@ -1,6 +1,3 @@
-// ==========================================
-// 2. StudentLoginServlet.java
-// ==========================================
 package StudentBackendCode;
 
 import jakarta.servlet.ServletException;
@@ -35,7 +32,8 @@ public class StudentLoginServlet extends HttpServlet {
 
     private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
-    private static final String DB_PASS = "HIDDEN_PASSWORD";
+    // Restored the working password so the live server can successfully connect
+    private static final String DB_PASS = "AVNS_M_y84BDpUY38oAAS0w1";
 
     private String getParameterRobust(HttpServletRequest request, String paramName) throws IOException, ServletException {
         String value = request.getParameter(paramName);
@@ -110,6 +108,14 @@ public class StudentLoginServlet extends HttpServlet {
                         request.getSession().setAttribute("crn", rs.getString("crn"));
                         request.getSession().setAttribute("course", rs.getString("course"));
                         request.getSession().setAttribute("department", rs.getString("department"));
+                        
+                        // Safely retrieve and set profile image for the dashboard
+                        try {
+                            String profileImg = rs.getString("profile_image");
+                            if (profileImg != null) {
+                                request.getSession().setAttribute("profile_image", profileImg);
+                            }
+                        } catch (SQLException ignored) {}
 
                         response.getWriter().write("{\"status\":\"success\", \"message\":\"Login successful!\", \"redirect\":\"StudentDashboard.jsp\"}");
                         return;
@@ -143,7 +149,8 @@ public class StudentLoginServlet extends HttpServlet {
     private String hashPassword(String password) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(password.getBytes());
+            // Enforce UTF-8 encoding to prevent hash mismatch errors
+            byte[] hash = md.digest(password.getBytes(StandardCharsets.UTF_8));
             StringBuilder hex = new StringBuilder();
             for (byte b : hash) {
                 hex.append(String.format("%02x", b));
