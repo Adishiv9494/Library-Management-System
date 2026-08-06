@@ -1,3 +1,6 @@
+// ==========================================
+// 3. StudentLogoutServlet.java
+// ==========================================
 package StudentBackendCode;
 
 import jakarta.servlet.ServletException;
@@ -9,6 +12,8 @@ import java.io.IOException;
 
 @WebServlet("/StudentLogoutServlet")
 public class StudentLogoutServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {

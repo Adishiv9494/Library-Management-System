@@ -1,3 +1,6 @@
+// ==========================================
+// 1. EBookActionServlet.java
+// ==========================================
 package StudentBackendCode;
 
 import jakarta.servlet.ServletException;
@@ -17,15 +20,16 @@ import java.sql.Statement;
 
 @WebServlet("/EBookActionServlet")
 @MultipartConfig(
-    fileSizeThreshold = 1024 * 1024 * 2,  // 2MB memory threshold
-    maxFileSize = 1024 * 1024 * 50,       // 50MB max file size
-    maxRequestSize = 1024 * 1024 * 55     // 55MB total request size
+    fileSizeThreshold = 1024 * 1024 * 2,  
+    maxFileSize = 1024 * 1024 * 50,       
+    maxRequestSize = 1024 * 1024 * 55     
 )
 public class EBookActionServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
-    
-    // Setup Directory for PDF uploads inside the webapp
     private static final String UPLOAD_DIR = "ebook_uploads";
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASS = "HIDDEN_PASSWORD";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -34,34 +38,9 @@ public class EBookActionServlet extends HttpServlet {
         if("count".equals(action)) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-                Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD");
-                PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) FROM ebooks");
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    response.getWriter().write(String.valueOf(rs.getInt(1)));
-                }
-                rs.close(); pstmt.close(); conn.close();
-            } catch (Exception e) {
-                // If table doesn't exist yet, return 0
-                response.getWriter().write("0");
-            }
-        }
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        
-        String action = request.getParameter("action");
-        
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC\", \"avnadmin\", \"HIDDEN_PASSWORD");
-
-            if ("upload".equals(action)) {
+                Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
                 
-                // --- SECONDARY TABLE CREATION CHECK ---
-                // Prevents the "Table library.ebooks doesn't exist" error during backend upload.
+                // Ensure table exists on count check too
                 String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (" +
                                         "id INT AUTO_INCREMENT PRIMARY KEY, " +
                                         "title VARCHAR(255) NOT NULL, " +
@@ -75,17 +54,48 @@ public class EBookActionServlet extends HttpServlet {
                     stmt.execute(createTableSQL);
                 }
 
-                // Process Form Fields
+                PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) FROM ebooks");
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    response.getWriter().write(String.valueOf(rs.getInt(1)));
+                }
+                rs.close(); pstmt.close(); conn.close();
+            } catch (Exception e) {
+                response.getWriter().write("0");
+            }
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        String action = request.getParameter("action");
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+
+            if ("upload".equals(action)) {
+                String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (" +
+                                        "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                                        "title VARCHAR(255) NOT NULL, " +
+                                        "author VARCHAR(255) NOT NULL, " +
+                                        "edition VARCHAR(100), " +
+                                        "description TEXT, " +
+                                        "pdf_url VARCHAR(500) NOT NULL, " +
+                                        "uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                                        ")";
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(createTableSQL);
+                }
+
                 String title = request.getParameter("title");
                 String author = request.getParameter("author");
                 String edition = request.getParameter("edition");
                 String description = request.getParameter("description");
                 
-                // Process File Upload
                 Part filePart = request.getPart("pdfFile");
                 String fileName = filePart.getSubmittedFileName();
                 
-                // Construct safe upload path
                 String applicationPath = request.getServletContext().getRealPath("");
                 String uploadFilePath = applicationPath + File.separator + UPLOAD_DIR;
                 
@@ -94,14 +104,11 @@ public class EBookActionServlet extends HttpServlet {
                     fileSaveDir.mkdirs();
                 }
                 
-                // Save physical file
                 String savePath = uploadFilePath + File.separator + fileName;
                 filePart.write(savePath);
                 
-                // Relative URL path to be saved in database
                 String pdfUrl = UPLOAD_DIR + "/" + fileName;
                 
-                // Insert into Database
                 String query = "INSERT INTO ebooks (title, author, edition, description, pdf_url) VALUES (?, ?, ?, ?, ?)";
                 PreparedStatement pstmt = conn.prepareStatement(query);
                 pstmt.setString(1, title);
@@ -116,10 +123,6 @@ public class EBookActionServlet extends HttpServlet {
                 
             } else if ("delete".equals(action)) {
                 String id = request.getParameter("id");
-                
-                // Note: To be perfectly clean, you could also delete the physical file here
-                // using a SELECT query to get the pdf_url, then java.io.File.delete()
-                
                 String query = "DELETE FROM ebooks WHERE id = ?";
                 PreparedStatement pstmt = conn.prepareStatement(query);
                 pstmt.setString(1, id);
@@ -130,7 +133,6 @@ public class EBookActionServlet extends HttpServlet {
             }
             conn.close();
         } catch (Exception e) {
-            // Print actual error to ajax response for debugging
             response.getWriter().write("{\"status\":\"error\", \"message\":\"" + e.getMessage().replace("\"", "\\\"") + "\"}");
         }
     }

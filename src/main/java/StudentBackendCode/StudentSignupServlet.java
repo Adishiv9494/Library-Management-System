@@ -1,3 +1,6 @@
+// ==========================================
+// 4. StudentSignupServlet.java
+// ==========================================
 package StudentBackendCode;
 
 import jakarta.servlet.ServletException;
@@ -29,7 +32,7 @@ public class StudentSignupServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(StudentSignupServlet.class.getName());
 
-    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
     private static final String DB_PASS = "HIDDEN_PASSWORD";
 
@@ -44,12 +47,10 @@ public class StudentSignupServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
         try {
-            // 1. Get all parameters
             String fullName = request.getParameter("fullName");
             String email = request.getParameter("email");
             String contact = request.getParameter("contactNumber");
@@ -61,75 +62,40 @@ public class StudentSignupServlet extends HttpServlet {
             String captchaInput = request.getParameter("captchaInput");
             String captchaHidden = request.getParameter("captchaHidden");
 
-            // 2. Null checks with safe defaults
-            if (fullName == null || fullName.trim().isEmpty()) {
-                sendError(response, "Full name is required.");
-                return;
-            }
-            if (email == null || email.trim().isEmpty()) {
-                sendError(response, "Email is required.");
-                return;
-            }
-            if (contact == null || contact.trim().isEmpty()) {
-                sendError(response, "Contact number is required.");
-                return;
-            }
-            if (crn == null || crn.trim().isEmpty()) {
-                sendError(response, "CRN / Roll Number is required.");
-                return;
-            }
-            if (course == null || course.trim().isEmpty()) {
-                sendError(response, "Course is required.");
-                return;
-            }
-            if (password == null || password.trim().isEmpty()) {
-                sendError(response, "Password is required.");
-                return;
-            }
-            if (confirmPassword == null || confirmPassword.trim().isEmpty()) {
-                sendError(response, "Confirm password is required.");
-                return;
-            }
-            if (captchaInput == null || captchaInput.trim().isEmpty()) {
-                sendError(response, "CAPTCHA is required.");
-                return;
-            }
-            if (captchaHidden == null || captchaHidden.trim().isEmpty()) {
-                sendError(response, "CAPTCHA hidden value is missing.");
+            if (fullName == null || fullName.trim().isEmpty() ||
+                email == null || email.trim().isEmpty() ||
+                contact == null || contact.trim().isEmpty() ||
+                crn == null || crn.trim().isEmpty() ||
+                course == null || course.trim().isEmpty() ||
+                password == null || password.trim().isEmpty() ||
+                confirmPassword == null || confirmPassword.trim().isEmpty() ||
+                captchaInput == null || captchaInput.trim().isEmpty() ||
+                captchaHidden == null || captchaHidden.trim().isEmpty()) {
+                sendError(response, "All fields are required.");
                 return;
             }
 
-            // 3. CAPTCHA validation
             if (!captchaInput.equals(captchaHidden)) {
                 sendError(response, "Invalid CAPTCHA. Please try again.");
                 return;
             }
 
-            // 4. Password match
             if (!password.equals(confirmPassword)) {
                 sendError(response, "Passwords do not match.");
                 return;
             }
 
-            // 5. Department handling
             boolean departmentRequired = !DISABLE_DEPT_COURSES.contains(course);
             if (departmentRequired && (department == null || department.trim().isEmpty())) {
                 sendError(response, "Department is required for this course.");
                 return;
             }
-            if (!departmentRequired) {
-                department = "NA"; // Set to "NA" for courses that don't require it
-            }
-            // Ensure department is never null
-            if (department == null || department.trim().isEmpty()) {
+            if (!departmentRequired || department == null || department.trim().isEmpty()) {
                 department = "NA";
             }
             department = department.trim();
 
-            // 6. Hash password
             String hashedPassword = hashPassword(password);
-
-            // 7. Database operations
             Connection conn = null;
             PreparedStatement pstmt = null;
             ResultSet rs = null;
@@ -138,7 +104,6 @@ public class StudentSignupServlet extends HttpServlet {
                 Class.forName("com.mysql.cj.jdbc.Driver");
                 conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
 
-                // 7a. Check if email already exists
                 String checkEmail = "SELECT email FROM student_signup WHERE email = ?";
                 pstmt = conn.prepareStatement(checkEmail);
                 pstmt.setString(1, email);
@@ -150,7 +115,6 @@ public class StudentSignupServlet extends HttpServlet {
                 rs.close();
                 pstmt.close();
 
-                // 7b. Validate student against course-specific table
                 String tableName = course.toLowerCase() + "_students";
                 String validateQuery = "SELECT * FROM " + tableName + " WHERE crn = ? AND name = ? AND contact = ?";
                 pstmt = conn.prepareStatement(validateQuery);
@@ -166,7 +130,6 @@ public class StudentSignupServlet extends HttpServlet {
                 rs.close();
                 pstmt.close();
 
-                // 7c. Insert into student_signup
                 String insertQuery = "INSERT INTO student_signup (full_name, email, contact_number, crn, course, department, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?)";
                 pstmt = conn.prepareStatement(insertQuery);
                 pstmt.setString(1, fullName);
@@ -179,7 +142,6 @@ public class StudentSignupServlet extends HttpServlet {
 
                 int rows = pstmt.executeUpdate();
                 if (rows > 0) {
-                    // Success: set session attributes
                     request.getSession().setAttribute("full_name", fullName);
                     request.getSession().setAttribute("email", email);
                     request.getSession().setAttribute("contact", contact);
@@ -187,7 +149,6 @@ public class StudentSignupServlet extends HttpServlet {
                     request.getSession().setAttribute("course", course);
                     request.getSession().setAttribute("department", department);
 
-                    // Redirect to dashboard
                     response.sendRedirect("studentsignupdone.jsp");
                 } else {
                     sendError(response, "Signup failed. Please try again.");
@@ -213,7 +174,6 @@ public class StudentSignupServlet extends HttpServlet {
 
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unexpected error", e);
-            // Return a detailed error message for debugging (but be careful not to expose internal info in production)
             sendError(response, "An unexpected error occurred: " + e.getMessage());
         }
     }

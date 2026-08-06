@@ -1,3 +1,6 @@
+// ==========================================
+// 2. StudentLoginServlet.java
+// ==========================================
 package StudentBackendCode;
 
 import jakarta.servlet.ServletException;
@@ -30,11 +33,10 @@ public class StudentLoginServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(StudentLoginServlet.class.getName());
 
-    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
     private static final String DB_PASS = "HIDDEN_PASSWORD";
 
-    // Bulletproof extraction to prevent nulls regardless of frontend encoding[cite: 11]
     private String getParameterRobust(HttpServletRequest request, String paramName) throws IOException, ServletException {
         String value = request.getParameter(paramName);
         if (value == null && request.getContentType() != null && request.getContentType().toLowerCase().startsWith("multipart/")) {
@@ -49,7 +51,6 @@ public class StudentLoginServlet extends HttpServlet {
         return value != null ? value.trim() : null;
     }
 
-    // Handle GET requests - redirect to login page[cite: 11]
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -59,18 +60,15 @@ public class StudentLoginServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
         try {
-            // Replaced standard parameters with robust parameter extraction to fix "All fields required" error[cite: 11]
             String loginIdentifier = getParameterRobust(request, "loginIdentifier");
             String password = getParameterRobust(request, "password");
             String captchaInput = getParameterRobust(request, "captchaInput");
             String captchaHidden = getParameterRobust(request, "captchaHidden");
             
-            // Fallback for email alias if loginIdentifier is empty
             if (loginIdentifier == null || loginIdentifier.isEmpty()) {
                 loginIdentifier = getParameterRobust(request, "email");
             }
@@ -97,7 +95,6 @@ public class StudentLoginServlet extends HttpServlet {
                 Class.forName("com.mysql.cj.jdbc.Driver");
                 conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
 
-                // Login via email or CRN[cite: 11]
                 String query = "SELECT * FROM student_signup WHERE email = ? OR crn = ?";
                 pstmt = conn.prepareStatement(query);
                 pstmt.setString(1, loginIdentifier);
@@ -107,7 +104,6 @@ public class StudentLoginServlet extends HttpServlet {
                 if (rs.next()) {
                     String storedPassword = rs.getString("password_hash");
                     if (storedPassword.equals(hashedPassword)) {
-                        // Set session attributes[cite: 11]
                         request.getSession().setAttribute("full_name", rs.getString("full_name"));
                         request.getSession().setAttribute("email", rs.getString("email"));
                         request.getSession().setAttribute("contact", rs.getString("contact_number"));
@@ -115,7 +111,6 @@ public class StudentLoginServlet extends HttpServlet {
                         request.getSession().setAttribute("course", rs.getString("course"));
                         request.getSession().setAttribute("department", rs.getString("department"));
 
-                        // Return a clean JSON response instead of a direct redirect[cite: 11]
                         response.getWriter().write("{\"status\":\"success\", \"message\":\"Login successful!\", \"redirect\":\"StudentDashboard.jsp\"}");
                         return;
                     } else {
