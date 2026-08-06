@@ -46,7 +46,7 @@ public class SendOtpServlet extends HttpServlet {
             Class.forName("com.mysql.cj.jdbc.Driver");
             
             System.out.println("3. Connecting to database 'library'...");
-            Connection con = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD");
+            Connection con = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD");
             
             System.out.println("4. Checking student_signup table...");
             PreparedStatement psStudent = con.prepareStatement("SELECT email FROM student_signup WHERE email = ?");
@@ -97,7 +97,7 @@ public class SendOtpServlet extends HttpServlet {
         System.out.println("   -> Generated OTP: " + otpValue);
 
         final String senderEmail = "aadityasingh.knp@gmail.com"; 
-        final String senderPassword = "hsveatgatrwvhqvt"; 
+        final String senderPassword = "HIDDEN_PASSWORD"; 
 
         Properties props = new Properties();
         props.put("mail.smtp.host", "smtp.gmail.com");

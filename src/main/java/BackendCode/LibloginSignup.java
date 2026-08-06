@@ -25,9 +25,9 @@ import java.util.Base64;
 public class LibloginSignup extends HttpServlet {
     
     // Database configuration
-	private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
-	private static final String DB_USER = "avnadmin";
-	private static final String DB_PASSWORD = "HIDDEN_PASSWORD";
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASSWORD = "HIDDEN_PASSWORD";
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
@@ -68,16 +68,12 @@ public class LibloginSignup extends HttpServlet {
             Part part = request.getPart(paramName);
             if (part != null) {
                 try (InputStream is = part.getInputStream()) {
-                    // Use readAllBytes() instead of available() for reliable reading
                     byte[] bytes = is.readAllBytes();
-                    // Enforce UTF-8 encoding
                     value = new String(bytes, StandardCharsets.UTF_8);
                 }
             }
         }
         
-        // CRITICAL FIX: Trim whitespace and invisible newline characters (\r\n)
-        System.out.println("Parameter '" + paramName + "' value: " + (value != null ? value.trim() : "null"));
         return value != null ? value.trim() : null;
     }
     
@@ -198,7 +194,6 @@ public class LibloginSignup extends HttpServlet {
                 return;
             }
             
-            // FIX: Check if contact number already exists to prevent SQL Integrity Crash
             if (isContactNumberExists(contactNumber)) {
                 sendErrorResponse(out, "Phone number is already registered");
                 return;
@@ -261,7 +256,6 @@ public class LibloginSignup extends HttpServlet {
         }
     }
     
-    // Checks if the phone number is already taken
     private boolean isContactNumberExists(String contactNumber) throws SQLException {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
              PreparedStatement stmt = conn.prepareStatement(
@@ -281,7 +275,6 @@ public class LibloginSignup extends HttpServlet {
         
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(salt);
-        // Explicitly encode to UTF-8
         byte[] hashedPassword = md.digest(password.getBytes(StandardCharsets.UTF_8));
         
         byte[] combined = new byte[salt.length + hashedPassword.length];
@@ -296,7 +289,26 @@ public class LibloginSignup extends HttpServlet {
             System.out.println("Password verification failed: No stored hash");
             return false;
         }
+
+        // FALLBACK: If the hash was accidentally stored in Hex format during a glitchy reset
+        if (storedHash.length() == 64 && storedHash.matches("^[0-9a-fA-F]+$")) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                byte[] hashBytes = md.digest(password.getBytes(StandardCharsets.UTF_8));
+                StringBuilder hex = new StringBuilder();
+                for (byte b : hashBytes) {
+                    hex.append(String.format("%02x", b));
+                }
+                if (hex.toString().equals(storedHash)) {
+                    System.out.println("Password verified successfully using Hex fallback.");
+                    return true;
+                }
+            } catch (Exception e) {
+                System.out.println("Fallback verification error.");
+            }
+        }
         
+        // PRIMARY: Standard Admin Base64 Salted Hash Verification
         try {
             byte[] combined = Base64.getDecoder().decode(storedHash);
             byte[] salt = new byte[16];
@@ -309,7 +321,6 @@ public class LibloginSignup extends HttpServlet {
             
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             md.update(salt);
-            // Explicitly encode to UTF-8
             byte[] hashedPassword = md.digest(password.getBytes(StandardCharsets.UTF_8));
             
             for (int i = 0; i < hashedPassword.length; i++) {

@@ -5,6 +5,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +37,7 @@ public class ViewAllIssuedBook extends HttpServlet {
 
         List<Map<String, Object>> issuedBooks = new ArrayList<>();
         Map<String, Object> result = new HashMap<>();
+        LocalDate today = LocalDate.now();
 
         try (Connection conn = DatabaseConnection.getConnection()) {
             StringBuilder sql = new StringBuilder(
@@ -72,12 +75,45 @@ public class ViewAllIssuedBook extends HttpServlet {
 
             try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
                 for (int i = 0; i < params.size(); i++) {
-                    stmt.setObject(i+1, params.get(i));
+                    stmt.setObject(i + 1, params.get(i));
                 }
                 ResultSet rs = stmt.executeQuery();
                 while (rs.next()) {
+                    int issueId = rs.getInt("issue_id");
+                    java.sql.Date sqlDueDate = rs.getDate("due_date");
+                    String currentStatus = rs.getString("status");
+                    double fineAmount = rs.getDouble("fine_amount");
+                    String calculatedStatus = currentStatus != null ? currentStatus : "ISSUED";
+
+                    // Calculate fine and dynamic status if not returned
+                    if (!"RETURNED".equalsIgnoreCase(calculatedStatus) && sqlDueDate != null) {
+                        LocalDate dueDate = sqlDueDate.toLocalDate();
+                        long daysLate = ChronoUnit.DAYS.between(dueDate, today);
+
+                        if (daysLate > 0) {
+                            // ₹5 per day fine category
+                            fineAmount = daysLate * 5.0;
+
+                            // 20 days unreturned = Defaulter, else Overdue
+                            if (daysLate >= 20) {
+                                calculatedStatus = "DEFAULTER";
+                            } else {
+                                calculatedStatus = "OVERDUE";
+                            }
+
+                            // Update in database automatically
+                            String updateSql = "UPDATE book_issues SET fine_amount = ?, status = ? WHERE issue_id = ?";
+                            try (PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+                                updateStmt.setDouble(1, fineAmount);
+                                updateStmt.setString(2, calculatedStatus);
+                                updateStmt.setInt(3, issueId);
+                                updateStmt.executeUpdate();
+                            }
+                        }
+                    }
+
                     Map<String, Object> map = new HashMap<>();
-                    map.put("issueId", rs.getInt("issue_id"));
+                    map.put("issueId", issueId);
                     map.put("crn", rs.getString("crn"));
                     map.put("studentName", rs.getString("student_name"));
                     map.put("contact", rs.getString("contact"));
@@ -87,10 +123,10 @@ public class ViewAllIssuedBook extends HttpServlet {
                     map.put("author", rs.getString("author"));
                     map.put("edition", rs.getString("edition"));
                     map.put("issueDate", rs.getDate("issue_date"));
-                    map.put("dueDate", rs.getDate("due_date"));
+                    map.put("dueDate", sqlDueDate);
                     map.put("returnDate", rs.getDate("return_date"));
-                    map.put("fine_amount", rs.getDouble("fine_amount"));
-                    map.put("status", rs.getString("status"));
+                    map.put("fine_amount", fineAmount);
+                    map.put("status", calculatedStatus);
                     issuedBooks.add(map);
                 }
             }

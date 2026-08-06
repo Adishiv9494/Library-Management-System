@@ -1,203 +1,130 @@
 package BackendCode;
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
-import jakarta.servlet.annotation.*;
-import java.io.*;
-import java.sql.*;
-import java.util.*;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 @WebServlet("/StudentsRecordsData")
 public class StudentsRecordsData extends HttpServlet {
-    // Database configuration
-	private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
-	private static final String DB_USER = "avnadmin";
-	private static final String DB_PASSWORD = "HIDDEN_PASSWORD";
+    private static final long serialVersionUID = 1L;
     
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASS = "HIDDEN_PASSWORD";
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+        PrintWriter out = response.getWriter();
         
-        // Get request parameters
-        int page = getIntParameter(request, "page", 1);
-        int limit = getIntParameter(request, "limit", 10);
-        String searchTerm = request.getParameter("search") != null ? 
-                           request.getParameter("search").trim() : "";
-        String courseFilter = request.getParameter("course") != null ?
-                             request.getParameter("course").trim() : "";
+        JSONObject jsonResponse = new JSONObject();
+        JSONArray jsonArray = new JSONArray();
+
+        String course = request.getParameter("course");
+        String searchCRN = request.getParameter("searchCRN");
+        String searchName = request.getParameter("searchName");
         
-        // Calculate offset
-        int offset = (page - 1) * limit;
-        
-        try (PrintWriter out = response.getWriter()) {
-            try {
-                // Load JDBC driver
-                Class.forName("com.mysql.cj.jdbc.Driver");
-                
-                // Establish connection
-                try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                    // Get total records count
-                    int totalRecords = getTotalRecords(conn, searchTerm, courseFilter);
-                    
-                    // Get paginated student data
-                    List<Student> students = getStudentRecords(conn, offset, limit, searchTerm, courseFilter);
-                    
-                    // Build JSON response
-                    out.print("{");
-                    out.print("\"totalRecords\":" + totalRecords + ",");
-                    out.print("\"data\":[");
-                    
-                    boolean first = true;
-                    for (Student student : students) {
-                        if (!first) out.print(",");
-                        out.print(studentToJson(student));
-                        first = false;
-                    }
-                    
-                    out.print("]}");
-                }
-            } catch (ClassNotFoundException e) {
-                out.print("{\"error\":\"Database driver not found\"}");
-                log("Database driver not found", e);
-            } catch (SQLException e) {
-                out.print("{\"error\":\"Database error: " + e.getMessage() + "\"}");
-                log("Database error", e);
-            } catch (Exception e) {
-                out.print("{\"error\":\"Unexpected error: " + e.getMessage() + "\"}");
-                log("Unexpected error", e);
-            }
-        }
-    }
-    
-    private int getIntParameter(HttpServletRequest request, String paramName, int defaultValue) {
+        int page = 1;
+        int limit = 10;
         try {
-            return Integer.parseInt(request.getParameter(paramName));
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
-    
-    private int getTotalRecords(Connection conn, String searchTerm, String courseFilter) throws SQLException {
-        String countQuery = "SELECT COUNT(*) FROM (" +
-                           "SELECT crn FROM BCA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                           "AND (? = '' OR course LIKE ?) " +
-                           "UNION ALL SELECT crn FROM BBA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                           "AND (? = '' OR course LIKE ?) " +
-                           "UNION ALL SELECT crn FROM BTech_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                           "AND (? = '' OR course LIKE ?) " +
-                           "UNION ALL SELECT crn FROM MCA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                           "AND (? = '' OR course LIKE ?) " +
-                           "UNION ALL SELECT crn FROM MBA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                           "AND (? = '' OR course LIKE ?) " +
-                           "UNION ALL SELECT crn FROM PTech_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                           "AND (? = '' OR course LIKE ?)" +
-                           ") AS all_students";
-        
-        try (PreparedStatement pstmt = conn.prepareStatement(countQuery)) {
-            setSearchParameters(pstmt, searchTerm, courseFilter);
-            
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
-    }
-    
-    private List<Student> getStudentRecords(Connection conn, int offset, int limit, String searchTerm, String courseFilter) 
-            throws SQLException {
-        List<Student> students = new ArrayList<>();
-        String query = "SELECT crn, name, contact, course FROM BCA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                       "AND (? = '' OR course LIKE ?) " +
-                       "UNION ALL SELECT crn, name, contact, course FROM BBA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                       "AND (? = '' OR course LIKE ?) " +
-                       "UNION ALL SELECT crn, name, contact, course FROM BTech_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                       "AND (? = '' OR course LIKE ?) " +
-                       "UNION ALL SELECT crn, name, contact, course FROM MCA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                       "AND (? = '' OR course LIKE ?) " +
-                       "UNION ALL SELECT crn, name, contact, course FROM MBA_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                       "AND (? = '' OR course LIKE ?) " +
-                       "UNION ALL SELECT crn, name, contact, course FROM PTech_students WHERE (? = '' OR crn LIKE ? OR name LIKE ?) " +
-                       "AND (? = '' OR course LIKE ?) " +
-                       "ORDER BY name LIMIT ? OFFSET ?";
-        
-        try (PreparedStatement pstmt = conn.prepareStatement(query)) {
-            int paramIndex = setSearchParameters(pstmt, searchTerm, courseFilter);
-            pstmt.setInt(paramIndex++, limit);
-            pstmt.setInt(paramIndex, offset);
-            
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    Student student = new Student();
-                    student.setCrn(rs.getString("crn"));
-                    student.setName(rs.getString("name"));
-                    student.setContact(rs.getString("contact"));
-                    student.setCourse(rs.getString("course"));
-                    students.add(student);
+            if (request.getParameter("page") != null) page = Integer.parseInt(request.getParameter("page"));
+            if (request.getParameter("limit") != null) limit = Integer.parseInt(request.getParameter("limit"));
+        } catch (NumberFormatException ignored) {}
+
+        int offset = (page - 1) * limit;
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+                
+                // Base subquery or union query to gather all relevant student rows based on course filter
+                String sourceQuery = "";
+                if (course == null || course.trim().isEmpty() || course.equalsIgnoreCase("all")) {
+                    sourceQuery = "(SELECT crn, name, course, contact, is_defaulter FROM bba_students " +
+                                  "UNION ALL SELECT crn, name, course, contact, is_defaulter FROM bca_students " +
+                                  "UNION ALL SELECT crn, name, course, contact, is_defaulter FROM mba_students " +
+                                  "UNION ALL SELECT crn, name, course, contact, is_defaulter FROM mca_students " +
+                                  "UNION ALL SELECT crn, name, course, contact, is_defaulter FROM btech_students " +
+                                  "UNION ALL SELECT crn, name, course, contact, is_defaulter FROM ptech_students)";
+                } else {
+                    String cleanCourse = course.toLowerCase().replaceAll("[^a-z]", "");
+                    sourceQuery = cleanCourse + "_students";
                 }
+
+                // Build dynamic filters for CRN and Name search
+                StringBuilder whereClause = new StringBuilder(" WHERE 1=1");
+                List<String> params = new ArrayList<>();
+
+                if (searchCRN != null && !searchCRN.trim().isEmpty()) {
+                    whereClause.append(" AND crn LIKE ?");
+                    params.add("%" + searchCRN.trim() + "%");
+                }
+                if (searchName != null && !searchName.trim().isEmpty()) {
+                    whereClause.append(" AND name LIKE ?");
+                    params.add("%" + searchName.trim() + "%");
+                }
+
+                // 1. Get total records count for pagination
+                String countSql = "SELECT COUNT(*) FROM " + sourceQuery + " AS sub" + whereClause.toString();
+                int totalRecords = 0;
+                try (PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+                    for (int i = 0; i < params.size(); i++) {
+                        countStmt.setString(i + 1, params.get(i));
+                    }
+                    try (ResultSet rsCount = countStmt.executeQuery()) {
+                        if (rsCount.next()) {
+                            totalRecords = rsCount.getInt(1);
+                        }
+                    }
+                }
+
+                // 2. Get paginated data
+                String dataSql = "SELECT crn, name, course, contact, is_defaulter FROM " + sourceQuery + " AS sub" + 
+                                 whereClause.toString() + " ORDER BY crn LIMIT ? OFFSET ?";
+                
+                try (PreparedStatement pstmt = conn.prepareStatement(dataSql)) {
+                    int idx = 1;
+                    for (String p : params) {
+                        pstmt.setString(idx++, p);
+                    }
+                    pstmt.setInt(idx++, limit);
+                    pstmt.setInt(idx++, offset);
+
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        while (rs.next()) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("crn", rs.getString("crn") != null ? rs.getString("crn") : "");
+                            obj.put("name", rs.getString("name") != null ? rs.getString("name") : ""); // Fixed syntax bracket here
+                            obj.put("course", rs.getString("course") != null ? rs.getString("course") : "");
+                            obj.put("contact", rs.getString("contact") != null ? rs.getString("contact") : "");
+                            obj.put("is_defaulter", rs.getBoolean("is_defaulter"));
+                            jsonArray.put(obj);
+                        }
+                    }
+                }
+
+                jsonResponse.put("totalRecords", totalRecords);
+                jsonResponse.put("data", jsonArray);
+
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            jsonResponse.put("error", e.getMessage());
         }
-        return students;
-    }
-    
-    private int setSearchParameters(PreparedStatement pstmt, String searchTerm, String courseFilter) 
-            throws SQLException {
-        String searchPattern = "%" + searchTerm + "%";
-        String coursePattern = "%" + courseFilter + "%";
-        int paramIndex = 1;
-        
-        // Set parameters for each table (6 tables)
-        for (int i = 0; i < 6; i++) {
-            // Search parameters
-            pstmt.setString(paramIndex++, searchTerm.isEmpty() ? "" : searchTerm);
-            pstmt.setString(paramIndex++, searchPattern);
-            pstmt.setString(paramIndex++, searchPattern);
-            
-            // Course filter parameters
-            pstmt.setString(paramIndex++, courseFilter.isEmpty() ? "" : courseFilter);
-            pstmt.setString(paramIndex++, coursePattern);
-        }
-        
-        return paramIndex;
-    }
-    
-    private String studentToJson(Student student) {
-        return String.format(
-            "{\"crn\":\"%s\",\"name\":\"%s\",\"contact\":\"%s\",\"course\":\"%s\"}",
-            escapeJson(student.getCrn()),
-            escapeJson(student.getName()),
-            escapeJson(student.getContact()),
-            escapeJson(student.getCourse())
-        );
-    }
-    
-    private String escapeJson(String input) {
-        if (input == null) return "";
-        return input.replace("\\", "\\\\")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r")
-                   .replace("\t", "\\t");
-    }
-    
-    // Student data model class
-    private static class Student {
-        private String crn;
-        private String name;
-        private String contact;
-        private String course;
-        
-        // Getters and setters
-        public String getCrn() { return crn; }
-        public void setCrn(String crn) { this.crn = crn; }
-        
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        
-        public String getContact() { return contact; }
-        public void setContact(String contact) { this.contact = contact; }
-        
-        public String getCourse() { return course; }
-        public void setCourse(String course) { this.course = course; }
+
+        out.print(jsonResponse.toString());
+        out.flush();
     }
 }

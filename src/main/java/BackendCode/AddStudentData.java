@@ -1,4 +1,3 @@
-
 package BackendCode;
 
 import java.io.IOException;
@@ -20,8 +19,8 @@ import org.json.JSONObject;
 public class AddStudentData extends HttpServlet {
     private static final long serialVersionUID = 1L;
     
-    // Database configuration
-    private static final String JDBC_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC\";";
+    // Database configuration fixed
+    private static final String JDBC_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
     private static final String JDBC_USER = "avnadmin";
     private static final String JDBC_PASSWORD = "HIDDEN_PASSWORD";
     
@@ -41,13 +40,9 @@ public class AddStudentData extends HttpServlet {
         PreparedStatement pstmt = null;
         
         try {
-            // Load JDBC driver
             Class.forName("com.mysql.cj.jdbc.Driver");
-            
-            // Establish connection
             conn = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
             
-            // Determine which table to insert into based on course
             String tableName = getTableName(course);
             if (tableName == null) {
                 jsonResponse.put("success", false);
@@ -56,7 +51,6 @@ public class AddStudentData extends HttpServlet {
                 return;
             }
             
-            // SQL query to insert student
             String sql = "INSERT INTO " + tableName + " (crn, name, course, contact) VALUES (?, ?, ?, ?)";
             pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, crn);
@@ -101,20 +95,13 @@ public class AddStudentData extends HttpServlet {
     
     private String getTableName(String course) {
         switch(course) {
-            case "BBA":
-                return "BBA_students";
-            case "BCA":
-                return "BCA_students";
-            case "MBA":
-                return "MBA_students";
-            case "MCA":
-                return "MCA_students";
-            case "PTech":
-                return "PTech_students";
-            case "BTech":
-                return "BTech_students";
-            default:
-                return null;
+            case "BBA": return "bba_students";
+            case "BCA": return "bca_students";
+            case "MBA": return "mba_students";
+            case "MCA": return "mca_students";
+            case "PTech": return "ptech_students";
+            case "BTech": return "btech_students";
+            default: return null;
         }
     }
 }

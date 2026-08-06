@@ -1,12 +1,17 @@
 package BackendCode;
+
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -18,100 +23,99 @@ import com.google.gson.Gson;
 public class PendingFineServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     
-    // Database connection parameters
-    private static final String JDBC_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
-	private static final String JDBC_USER = "avnadmin";
-	private static final String JDBC_PASSWORD = "HIDDEN_PASSWORD";
-    
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        
-        try {
-            // Set up database connection
-            conn = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
-            
-            // SQL query to get students with pending fines (OVERDUE or DEFAULTER status)
-            String sql = "SELECT crn, student_name, contact, SUM(fine_amount) as total_fine " +
-                         "FROM book_issues " +
-                         "WHERE status IN ('OVERDUE', 'DEFAULTER') " +
-                         "GROUP BY crn, student_name, contact " +
-                         "HAVING total_fine > 0 " +
-                         "ORDER BY total_fine DESC";
-            
-            stmt = conn.prepareStatement(sql);
-            rs = stmt.executeQuery();
-            
-            // Process results
-            List<StudentFine> studentFines = new ArrayList<>();
-            while (rs.next()) {
-                StudentFine student = new StudentFine();
-                student.setCrn(rs.getString("crn"));
-                student.setName(rs.getString("student_name"));
-                student.setContact(rs.getString("contact"));
-                student.setTotalFine(rs.getDouble("total_fine"));
-                
-                studentFines.add(student);
-            }
-            
-            // Prepare JSON response
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            
-            Gson gson = new Gson();
-            String jsonResponse = gson.toJson(new Response(true, "Data retrieved successfully", studentFines));
-            response.getWriter().write(jsonResponse);
-            
-        } catch (SQLException e) {
-            e.printStackTrace();
-            sendErrorResponse(response, "Database error: " + e.getMessage());
-        } finally {
-            // Close resources
-            try { if (rs != null) rs.close(); } catch (SQLException e) { e.printStackTrace(); }
-            try { if (stmt != null) stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            try { if (conn != null) conn.close(); } catch (SQLException e) { e.printStackTrace(); }
-        }
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASS = "HIDDEN_PASSWORD";
+
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        processRequest(request, response);
     }
-    
-    private void sendErrorResponse(HttpServletResponse response, String message) throws IOException {
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        processRequest(request, response);
+    }
+
+    private void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(new Gson().toJson(new Response(false, message, null)));
-    }
-    
-    // Helper classes for JSON response
-    class Response {
-        boolean success;
-        String message;
-        List<StudentFine> data;
+        PrintWriter out = response.getWriter();
         
-        public Response(boolean success, String message, List<StudentFine> data) {
-            this.success = success;
-            this.message = message;
-            this.data = data;
+        Map<String, Object> jsonResponse = new HashMap<>();
+        List<Map<String, Object>> fineList = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+                
+                // Fetch active issued or overdue records
+                String query = "SELECT issue_id, crn, student_name, contact, due_date, status FROM book_issues WHERE status != 'RETURNED'";
+                
+                try (PreparedStatement pstmt = conn.prepareStatement(query);
+                     ResultSet rs = pstmt.executeQuery()) {
+                    
+                    while (rs.next()) {
+                        java.sql.Date sqlDueDate = rs.getDate("due_date");
+                        if (sqlDueDate == null) continue;
+                        
+                        LocalDate dueDate = sqlDueDate.toLocalDate();
+                        long daysLate = ChronoUnit.DAYS.between(dueDate, today);
+                        
+                        String currentStatus = rs.getString("status");
+                        double fineAmount = 0.0;
+                        String calculatedStatus = "ISSUED";
+
+                        if (daysLate > 0) {
+                            // ₹5 per day fine calculation
+                            fineAmount = daysLate * 5.0;
+                            
+                            if (daysLate > 20) {
+                                calculatedStatus = "DEFAULTER"; // 20+ days late = Defaulter (Red)
+                            } else {
+                                calculatedStatus = "OVERDUE";   // 1 to 20 days late = Overdue (Yellow)
+                            }
+                            
+                            // Automatically update the status and fine in database
+                            String updateSql = "UPDATE book_issues SET fine_amount = ?, status = ? WHERE issue_id = ?";
+                            try (PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+                                updateStmt.setDouble(1, fineAmount);
+                                updateStmt.setString(2, calculatedStatus);
+                                updateStmt.setInt(3, rs.getInt("issue_id"));
+                                updateStmt.executeUpdate();
+                            }
+                        } else {
+                            calculatedStatus = currentStatus;
+                        }
+
+                        // Aggregate response entry
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("crn", rs.getString("crn"));
+                        item.put("name", rs.getString("student_name"));
+                        item.put("contact", rs.getString("contact") != null ? rs.getString("contact") : "N/A");
+                        item.put("dueDate", sqlDueDate.toString());
+                        item.put("totalFine", fineAmount);
+                        item.put("status", calculatedStatus);
+                        
+                        // Include if fines apply or status is overdue/defaulter
+                        if (fineAmount > 0 || calculatedStatus.equals("OVERDUE") || calculatedStatus.equals("DEFAULTER")) {
+                            fineList.add(item);
+                        }
+                    }
+                }
+            }
+            
+            jsonResponse.put("success", true);
+            jsonResponse.put("data", fineList);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            jsonResponse.put("success", false);
+            jsonResponse.put("message", e.getMessage());
+            jsonResponse.put("data", new ArrayList<>());
         }
-    }
-    
-    class StudentFine {
-        private String crn;
-        private String name;
-        private String contact;
-        private double totalFine;
-        
-        // Getters and setters
-        public String getCrn() { return crn; }
-        public void setCrn(String crn) { this.crn = crn; }
-        
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        
-        public String getContact() { return contact; }
-        public void setContact(String contact) { this.contact = contact; }
-        
-        public double getTotalFine() { return totalFine; }
-        public void setTotalFine(double totalFine) { this.totalFine = totalFine; }
+
+        Gson gson = new Gson();
+        out.print(gson.toJson(jsonResponse));
+        out.flush();
     }
 }

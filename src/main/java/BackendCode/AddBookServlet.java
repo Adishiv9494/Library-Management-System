@@ -1,4 +1,5 @@
 package BackendCode;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -18,11 +19,10 @@ import org.json.JSONObject;
 public class AddBookServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     
-    // Database connection parameters
- // Update these variables with your Aiven details
-    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
     private static final String DB_PASSWORD = "HIDDEN_PASSWORD";
+
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -30,7 +30,6 @@ public class AddBookServlet extends HttpServlet {
         JSONObject jsonResponse = new JSONObject();
         
         try {
-            // Get form parameters
             int startingAccessionNumber = Integer.parseInt(request.getParameter("accessionNumber"));
             int numCopies = Integer.parseInt(request.getParameter("numCopies"));
             String bookName = request.getParameter("bookName");
@@ -39,21 +38,17 @@ public class AddBookServlet extends HttpServlet {
             String edition = request.getParameter("edition");
             double price = Double.parseDouble(request.getParameter("price"));
             
-            // Load JDBC driver
             Class.forName("com.mysql.cj.jdbc.Driver");
             
-            // Establish connection
             try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                // Prepare SQL statement
-                String sql = "INSERT INTO booksData (accession_number, book_name, author, publisher, edition, price) VALUES (?, ?, ?, ?, ?, ?)";
+                // Fixed table reference to lowercase booksdata
+                String sql = "INSERT INTO booksdata (accession_number, book_name, author, publisher, edition, price) VALUES (?, ?, ?, ?, ?, ?)";
                 
-                // Start transaction
                 conn.setAutoCommit(false);
                 
                 try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                     int successCount = 0;
                     
-                    // Insert each copy of the book with sequential accession numbers
                     for (int i = 0; i < numCopies; i++) {
                         int currentAccessionNumber = startingAccessionNumber + i;
                         
@@ -68,26 +63,11 @@ public class AddBookServlet extends HttpServlet {
                         successCount++;
                     }
                     
-                    // Execute batch insert
-                    int[] results = pstmt.executeBatch();
-                    
-                    // Verify all inserts were successful
-                    for (int result : results) {
-                        if (result != PreparedStatement.SUCCESS_NO_INFO && result <= 0) {
-                            conn.rollback();
-                            jsonResponse.put("success", false);
-                            jsonResponse.put("message", "Failed to insert some book records");
-                            out.print(jsonResponse.toString());
-                            return;
-                        }
-                    }
-                    
-                    // Commit transaction if all inserts were successful
+                    pstmt.executeBatch();
                     conn.commit();
                     
                     jsonResponse.put("success", true);
-                    jsonResponse.put("message", "Successfully added " + successCount + " book(s) with accession numbers " + 
-                            startingAccessionNumber + " to " + (startingAccessionNumber + numCopies - 1));
+                    jsonResponse.put("message", "Successfully added " + successCount + " book(s).");
                 } catch (SQLException e) {
                     conn.rollback();
                     jsonResponse.put("success", false);
@@ -96,18 +76,9 @@ public class AddBookServlet extends HttpServlet {
                     conn.setAutoCommit(true);
                 }
             }
-        } catch (NumberFormatException e) {
-            jsonResponse.put("success", false);
-            jsonResponse.put("message", "Invalid number format: " + e.getMessage());
-        } catch (ClassNotFoundException e) {
-            jsonResponse.put("success", false);
-            jsonResponse.put("message", "JDBC driver not found: " + e.getMessage());
-        } catch (SQLException e) {
-            jsonResponse.put("success", false);
-            jsonResponse.put("message", "Database connection error: " + e.getMessage());
         } catch (Exception e) {
             jsonResponse.put("success", false);
-            jsonResponse.put("message", "Unexpected error: " + e.getMessage());
+            jsonResponse.put("message", "Error: " + e.getMessage());
         }
         
         out.print(jsonResponse.toString());

@@ -3,156 +3,74 @@ package BackendCode;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
-import java.sql.Date;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-import com.google.gson.Gson;
-
-@WebServlet("/ViewIssuedBooksOld")   // <-- FIXED: unique mapping (was "/ViewIssuedBooks")
+@WebServlet("/ViewIssuedBooksServlet")
 public class ViewIssuedBooksServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASS = "HIDDEN_PASSWORD";
 
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
-        String fromDate = request.getParameter("fromDate");
-        String toDate = request.getParameter("toDate");
-        
-        List<IssuedBook> issuedBooks = new ArrayList<>();
-        
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT i.issue_id, s.crn, s.student_name, s.contact, s.course, " +
-                         "b.accession_number, b.title as book_title, b.author, b.edition, " +
-                         "i.issue_date, i.due_date, i.status " +
-                         "FROM issued_books i " +
-                         "JOIN students s ON i.student_id = s.student_id " +
-                         "JOIN books b ON i.book_id = b.book_id";
-            
-            if (fromDate != null && !fromDate.isEmpty() && toDate != null && !toDate.isEmpty()) {
-                sql += " WHERE i.issue_date BETWEEN ? AND ?";
-            }
-            
-            sql += " ORDER BY i.issue_date DESC";
-            
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                if (fromDate != null && !fromDate.isEmpty() && toDate != null && !toDate.isEmpty()) {
-                    stmt.setString(1, fromDate);
-                    stmt.setString(2, toDate);
-                }
+        PrintWriter out = response.getWriter();
+        JSONArray jsonArray = new JSONArray();
+
+        HttpSession session = request.getSession(false);
+        String crn = (session != null) ? (String) session.getAttribute("crn") : null;
+
+        if (crn == null) {
+            crn = request.getParameter("crn"); // Fallback parameter query
+        }
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+                String query = (crn != null && !crn.isEmpty()) 
+                    ? "SELECT issue_id, accession_number, book_title, author, edition, issue_date, due_date, status, renewal_count FROM book_issues WHERE crn = ?"
+                    : "SELECT issue_id, crn, student_name, accession_number, book_title, author, edition, issue_date, due_date, status, renewal_count FROM book_issues";
                 
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        IssuedBook book = new IssuedBook();
-                        book.setIssueId(rs.getString("issue_id"));
-                        book.setCrn(rs.getString("crn"));
-                        book.setStudentName(rs.getString("student_name"));
-                        book.setContact(rs.getString("contact"));
-                        book.setCourse(rs.getString("course"));
-                        book.setAccessionNumber(rs.getString("accession_number"));
-                        book.setBookTitle(rs.getString("book_title"));
-                        book.setAuthor(rs.getString("author"));
-                        book.setEdition(rs.getString("edition"));
-                        book.setIssueDate(rs.getDate("issue_date"));
-                        book.setDueDate(rs.getDate("due_date"));
-                        book.setStatus(rs.getString("status"));
-                        
-                        issuedBooks.add(book);
+                try (PreparedStatement pstmt = conn.prepareStatement(query)) {
+                    if (crn != null && !crn.isEmpty()) {
+                        pstmt.setString(1, crn);
+                    }
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        while (rs.next()) {
+                            JSONObject obj = new JSONObject();
+                            obj.put("issue_id", rs.getInt("issue_id"));
+                            if (crn == null || crn.isEmpty()) {
+                                obj.put("crn", rs.getString("crn"));
+                                obj.put("student_name", rs.getString("student_name"));
+                            }
+                            obj.put("accession_number", rs.getInt("accession_number"));
+                            obj.put("book_title", rs.getString("book_title"));
+                            obj.put("author", rs.getString("author"));
+                            obj.put("edition", rs.getString("edition"));
+                            obj.put("issue_date", rs.getString("issue_date"));
+                            obj.put("due_date", rs.getString("due_date"));
+                            obj.put("status", rs.getString("status"));
+                            obj.put("renewal_count", rs.getInt("renewal_count"));
+                            jsonArray.put(obj);
+                        }
                     }
                 }
             }
-            
-            // Create response JSON
-            Gson gson = new Gson();
-            String jsonResponse = gson.toJson(new Response(true, "Data fetched successfully", issuedBooks));
-            
-            PrintWriter out = response.getWriter();
-            out.print(jsonResponse);
-            out.flush();
-            
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
         }
+        out.print(jsonArray.toString());
+        out.flush();
     }
-}
-
-class IssuedBook {
-    private String issueId;
-    private String crn;
-    private String studentName;
-    private String contact;
-    private String course;
-    private String accessionNumber;
-    private String bookTitle;
-    private String author;
-    private String edition;
-    private Date issueDate;
-    private Date dueDate;
-    private String status;
-    
-    // Getters and setters
-    public String getIssueId() { return issueId; }
-    public void setIssueId(String issueId) { this.issueId = issueId; }
-    
-    public String getCrn() { return crn; }
-    public void setCrn(String crn) { this.crn = crn; }
-    
-    public String getStudentName() { return studentName; }
-    public void setStudentName(String studentName) { this.studentName = studentName; }
-    
-    public String getContact() { return contact; }
-    public void setContact(String contact) { this.contact = contact; }
-    
-    public String getCourse() { return course; }
-    public void setCourse(String course) { this.course = course; }
-    
-    public String getAccessionNumber() { return accessionNumber; }
-    public void setAccessionNumber(String accessionNumber) { this.accessionNumber = accessionNumber; }
-    
-    public String getBookTitle() { return bookTitle; }
-    public void setBookTitle(String bookTitle) { this.bookTitle = bookTitle; }
-    
-    public String getAuthor() { return author; }
-    public void setAuthor(String author) { this.author = author; }
-    
-    public String getEdition() { return edition; }
-    public void setEdition(String edition) { this.edition = edition; }
-    
-    public Date getIssueDate() { return issueDate; }
-    public void setIssueDate(Date issueDate) { this.issueDate = issueDate; }
-    
-    public Date getDueDate() { return dueDate; }
-    public void setDueDate(Date dueDate) { this.dueDate = dueDate; }
-    
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-}
-
-class Response {
-    private boolean success;
-    private String message;
-    private List<IssuedBook> data;
-    
-    public Response(boolean success, String message, List<IssuedBook> data) {
-        this.success = success;
-        this.message = message;
-        this.data = data;
-    }
-    
-    public boolean isSuccess() { return success; }
-    public String getMessage() { return message; }
-    public List<IssuedBook> getData() { return data; }
 }

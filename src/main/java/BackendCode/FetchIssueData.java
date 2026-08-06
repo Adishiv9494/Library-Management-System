@@ -1,148 +1,142 @@
 package BackendCode;
 
-import java.io.*;
-import java.sql.*;
-import java.util.*;
-import jakarta.servlet.*;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.HashMap;
+import java.util.Map;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import com.google.gson.Gson;
 
 @WebServlet("/FetchIssueData")
 public class FetchIssueData extends HttpServlet {
-	private static final String JDBC_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
-	private static final String JDBC_USER = "avnadmin";
-	private static final String JDBC_PASSWORD = "HIDDEN_PASSWORD";
+    private static final long serialVersionUID = 1L;
     
-    private static final String[] STUDENT_TABLES = {
-        "BBA_students", "BCA_students", "MBA_students", 
-        "MCA_students", "BTech_students", "PTech_students"
-    };
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASS = "HIDDEN_PASSWORD";
 
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        processRequest(request, response);
+    }
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        processRequest(request, response);
+    }
+
+    private void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
         Map<String, Object> result = new HashMap<>();
-        
+
+        String crn = request.getParameter("crn");
+        String accessionNoStr = request.getParameter("accessionNo");
+
+        if (crn == null || crn.trim().isEmpty() || accessionNoStr == null || accessionNoStr.trim().isEmpty()) {
+            result.put("success", false);
+            result.put("message", "CRN and Accession Number are required");
+            out.print(new Gson().toJson(result));
+            return;
+        }
+
+        crn = crn.trim().toUpperCase();
+        int accessionNo = 0;
         try {
-            String crn = request.getParameter("crn");
-            String accessionNo = request.getParameter("accessionNo");
-            
-            if (crn == null || crn.trim().isEmpty() || 
-                accessionNo == null || accessionNo.trim().isEmpty()) {
-                result.put("success", false);
-                result.put("message", "CRN and Accession Number are required");
-                out.print(new Gson().toJson(result));
-                return;
-            }
-            
-            // Ensure CRN is in uppercase
-            crn = crn.toUpperCase();
-            
-            try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD)) {
-                // Check if connection is valid
-                if (!conn.isValid(1)) {
-                    throw new SQLException("Database connection is invalid");
+            accessionNo = Integer.parseInt(accessionNoStr.trim());
+        } catch (NumberFormatException e) {
+            result.put("success", false);
+            result.put("message", "Invalid Accession Number format");
+            out.print(new Gson().toJson(result));
+            return;
+        }
+
+        Map<String, Object> studentMap = new HashMap<>();
+        Map<String, Object> bookMap = new HashMap<>();
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+                
+                // 1. Check if this book is already issued to someone else
+                String checkIssuedSql = "SELECT status FROM book_issues WHERE accession_number = ? AND status != 'RETURNED'";
+                try (PreparedStatement checkStmt = conn.prepareStatement(checkIssuedSql)) {
+                    checkStmt.setInt(1, accessionNo);
+                    try (ResultSet rsCheck = checkStmt.executeQuery()) {
+                        if (rsCheck.next()) {
+                            result.put("success", false);
+                            result.put("message", "This book (Accession No: " + accessionNo + ") is already issued and not available!");
+                            out.print(new Gson().toJson(result));
+                            return;
+                        }
+                    }
                 }
 
-                // Fetch student data
-                Map<String, String> studentData = fetchStudentData(conn, crn);
-                if (studentData == null) {
+                // 2. Search student across all departmental tables
+                String[] studentTables = {"bca_students", "bba_students", "mba_students", "mca_students", "btech_students", "ptech_students"};
+                boolean studentFound = false;
+
+                for (String table : studentTables) {
+                    String studentQuery = "SELECT name, contact, course FROM " + table + " WHERE crn = ?";
+                    try (PreparedStatement pstmt = conn.prepareStatement(studentQuery)) {
+                        pstmt.setString(1, crn);
+                        try (ResultSet rs = pstmt.executeQuery()) {
+                            if (rs.next()) {
+                                studentMap.put("name", rs.getString("name"));
+                                studentMap.put("contact", rs.getString("contact"));
+                                studentMap.put("course", rs.getString("course"));
+                                studentFound = true;
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (!studentFound) {
                     result.put("success", false);
-                    result.put("message", "Student not found");
+                    result.put("message", "Student with CRN " + crn + " not found in records.");
                     out.print(new Gson().toJson(result));
                     return;
                 }
 
-                // Fetch book data
-                Map<String, String> bookData = fetchBookData(conn, accessionNo);
-                if (bookData == null) {
-                    result.put("success", false);
-                    result.put("message", "Book not found");
-                    out.print(new Gson().toJson(result));
-                    return;
-                }
-
-                // Check if book is available
-                if (!isBookAvailable(conn, accessionNo)) {
-                    result.put("success", false);
-                    result.put("message", "Book is already issued");
-                    out.print(new Gson().toJson(result));
-                    return;
+                // 3. Search book details in booksdata table
+                String bookQuery = "SELECT book_name, author, edition, accession_number FROM booksdata WHERE accession_number = ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(bookQuery)) {
+                    pstmt.setInt(1, accessionNo);
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        if (rs.next()) {
+                            bookMap.put("book_name", rs.getString("book_name"));
+                            bookMap.put("author", rs.getString("author"));
+                            bookMap.put("edition", rs.getString("edition"));
+                            bookMap.put("accession_number", rs.getInt("accession_number"));
+                        } else {
+                            result.put("success", false);
+                            result.put("message", "Book with Accession Number " + accessionNo + " does not exist in the library catalog.");
+                            out.print(new Gson().toJson(result));
+                            return;
+                        }
+                    }
                 }
 
                 result.put("success", true);
-                result.put("student", studentData);
-                result.put("book", bookData);
-                out.print(new Gson().toJson(result));
-            } catch (SQLException e) {
-                result.put("success", false);
-                result.put("message", "Database error: " + e.getMessage());
-                out.print(new Gson().toJson(result));
-                e.printStackTrace();
+                result.put("student", studentMap);
+                result.put("book", bookMap);
+
             }
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", "Server error: " + e.getMessage());
-            out.print(new Gson().toJson(result));
             e.printStackTrace();
-        } finally {
-            out.flush();
+            result.put("success", false);
+            result.put("message", "Database error: " + e.getMessage());
         }
-    }
 
-    private Map<String, String> fetchStudentData(Connection conn, String crn) throws SQLException {
-        for (String table : STUDENT_TABLES) {
-            String sql = "SELECT name, contact, course FROM " + table + " WHERE crn = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, crn);
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) {
-                    Map<String, String> student = new HashMap<>();
-                    student.put("name", rs.getString("name"));
-                    student.put("contact", rs.getString("contact"));
-                    student.put("course", rs.getString("course"));
-                    return student;
-                }
-            }
-        }
-        return null;
-    }
-
-    private Map<String, String> fetchBookData(Connection conn, String accessionNo) throws SQLException {
-        try {
-            int accessionNum = Integer.parseInt(accessionNo);
-            String sql = "SELECT accession_number, book_name, author, edition FROM booksData WHERE accession_number = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setInt(1, accessionNum);
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) {
-                    Map<String, String> book = new HashMap<>();
-                    book.put("accessionNo", rs.getString("accession_number"));
-                    book.put("title", rs.getString("book_name"));
-                    book.put("author", rs.getString("author"));
-                    book.put("edition", rs.getString("edition"));
-                    return book;
-                }
-            }
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid accession number format");
-        }
-        return null;
-    }
-
-    private boolean isBookAvailable(Connection conn, String accessionNo) throws SQLException {
-        try {
-            int accessionNum = Integer.parseInt(accessionNo);
-            String sql = "SELECT 1 FROM book_issues WHERE accession_number = ? AND return_date IS NULL";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setInt(1, accessionNum);
-                return !stmt.executeQuery().next();
-            }
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid accession number format");
-        }
+        out.print(new Gson().toJson(result));
+        out.flush();
     }
 }
