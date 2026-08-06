@@ -8,17 +8,13 @@
 
     <display-name>Library Management System</display-name>
 
-   <welcome-file-list>
-        <welcome-file>welcome.jsp</welcome-file>
+    <welcome-file-list>
         <welcome-file>index.html</welcome-file>
-        <welcome-file>index.jsp</welcome-file>
-        <welcome-file>default.html</welcome-file>
-        <welcome-file>default.jsp</welcome-file>
+        <welcome-file>welcome.jsp</welcome-file>
     </welcome-file-list>
-    <session-config>
-    <!-- Session timeout in minutes -->
-    <session-timeout>15</session-timeout>
-</session-config>
 
+    <session-config>
+        <session-timeout>15</session-timeout>
+    </session-config>
 
 </web-app>
