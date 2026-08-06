@@ -544,8 +544,8 @@ if (email == null || contactNumber == null || profileImage == null || address ==
     
 <script>
   function fetchPendingBooksCount() {
-    fetch('PendingBooksCount')
-      .then(response => { if (!response.ok) throw new Error('Pending books count fetch failed'); return response.text(); })
+    fetch('AvailableBooksCount')
+      .then(response => { if (!response.ok) throw new Error('Available books count fetch failed'); return response.text(); })
       .then(count => { document.getElementById("pendingCount").innerText = count; })
       .catch(error => { document.getElementById("pendingCount").innerText = "0"; });
   }
@@ -560,7 +560,8 @@ if (email == null || contactNumber == null || profileImage == null || address ==
   function initializeCounts() {
     fetch('BooksCount').then(r => r.text()).then(c => document.getElementById("bookCount").innerText = c).catch(() => document.getElementById("bookCount").innerText = "0");
     fetch('TotalStudentCount').then(r => r.text()).then(c => document.getElementById("studentCount").innerText = c).catch(() => document.getElementById("studentCount").innerText = "0");
-    fetch('IssuesBooksCount').then(r => r.text()).then(c => document.getElementById("issuedBookCount").innerText = c).catch(() => document.getElementById("issuedBookCount").innerText = "0");
+    // Fixed endpoint name to match @WebServlet("/IssuedBooksCount")
+    fetch('IssuedBooksCount').then(r => r.text()).then(c => document.getElementById("issuedBookCount").innerText = c).catch(() => document.getElementById("issuedBookCount").innerText = "0");
     fetchPendingBooksCount();
     fetchEBooksCount(); 
   }

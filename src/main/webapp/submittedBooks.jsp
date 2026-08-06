@@ -49,69 +49,33 @@
             transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
         
-        .card-status-pending {
-            border-left: 5px solid var(--info-color);
-        }
-        
-        .card-status-ondue {
-            border-left: 5px solid var(--success-color);
-        }
-        
-        .card-status-overdue {
-            border-left: 5px solid var(--warning-color);
-        }
-        
-        .card-status-defaulter {
-            border-left: 5px solid var(--danger-color);
-        }
-        
-        .card-status-returned {
-            border-left: 5px solid #858796;
-        }
+        .card-status-pending { border-left: 5px solid var(--info-color); }
+        .card-status-ondue { border-left: 5px solid var(--success-color); }
+        .card-status-overdue { border-left: 5px solid var(--warning-color); }
+        .card-status-defaulter { border-left: 5px solid var(--danger-color); }
+        .card-status-returned { border-left: 5px solid #858796; }
         
         .status-badge {
-            padding: 5px 10px;
+            padding: 5px 12px;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: 600;
             text-transform: uppercase;
+            display: inline-block;
+            text-align: center;
         }
         
-        .status-pending {
-            background-color: var(--info-color);
-            color: white;
-        }
-        
-        .status-ondue {
-            background-color: var(--success-color);
-            color: white;
-        }
-        
-        .status-overdue {
-            background-color: var(--warning-color);
-            color: #000;
-        }
-        
-        .status-defaulter {
-            background-color: var(--danger-color);
-            color: white;
-        }
-        
-        .status-returned {
-            background-color: #858796;
-            color: white;
-        }
+        .status-issued { background-color: var(--success-color); color: white; }
+        .status-overdue { background-color: var(--warning-color); color: #000; }
+        .status-defaulter { background-color: var(--danger-color); color: white; }
+        .status-returned { background-color: #858796; color: white; }
         
         .btn-renew {
             background-color: var(--warning-color);
             color: #000;
             border: none;
         }
-        
-        .btn-renew:hover {
-            background-color: #dda20a;
-            color: #000;
-        }
+        .btn-renew:hover { background-color: #dda20a; color: #000; }
         
         .fine-amount {
             color: var(--danger-color);
@@ -123,41 +87,15 @@
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border-color, #e3e6f0);
         }
-        
-        .detail-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        
-        .detail-section-title {
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            color: var(--primary-color);
-        }
-        
-        .detail-item {
-            display: flex;
-            margin-bottom: 0.5rem;
-        }
-        
-        .detail-label {
-            font-weight: 600;
-            min-width: 120px;
-            color: var(--text-color, #5a5c69);
-        }
-        
-        .detail-value {
-            flex-grow: 1;
-            color: var(--text-color, #5a5c69);
-        }
+        .detail-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .detail-section-title { font-weight: 600; margin-bottom: 0.75rem; color: var(--primary-color); }
+        .detail-item { display: flex; margin-bottom: 0.5rem; }
+        .detail-label { font-weight: 600; min-width: 120px; color: var(--text-color, #5a5c69); }
+        .detail-value { flex-grow: 1; color: var(--text-color, #5a5c69); }
         
         .theme-toggle-btn {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
             border-radius: 50%;
         }
     </style>
@@ -190,14 +128,14 @@
                                     <label class="form-label">Student CRN</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-id-card"></i></span>
-                                        <input type="text" class="form-control" id="crn" required oninput="this.value = this.value.toUpperCase()">
+                                        <input type="text" class="form-control" id="crn" required autocomplete="off">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Accession Number</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-barcode"></i></span>
-                                        <input type="text" class="form-control" id="accessionNo" required>
+                                        <input type="text" class="form-control" id="accessionNo" required autocomplete="off">
                                     </div>
                                 </div>
                                 <div class="col-12">
@@ -222,89 +160,38 @@
                         </h4>
                         
                         <div class="issue-details-container">
-                            <!-- Student Details Section -->
                             <div class="detail-section">
-                                <div class="detail-section-title">
-                                    <i class="fas fa-user-graduate me-2"></i>Student Details
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Name:</span>
-                                    <span class="detail-value" id="studentName"></span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Contact:</span>
-                                    <span class="detail-value" id="studentContact"></span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Course:</span>
-                                    <span class="detail-value" id="studentCourse"></span>
-                                </div>
+                                <div class="detail-section-title"><i class="fas fa-user-graduate me-2"></i>Student Details</div>
+                                <div class="detail-item"><span class="detail-label">Name:</span><span class="detail-value" id="studentName"></span></div>
+                                <div class="detail-item"><span class="detail-label">Contact:</span><span class="detail-value" id="studentContact"></span></div>
+                                <div class="detail-item"><span class="detail-label">Course:</span><span class="detail-value" id="studentCourse"></span></div>
                             </div>
                             
-                            <!-- Book Details Section -->
                             <div class="detail-section">
-                                <div class="detail-section-title">
-                                    <i class="fas fa-book me-2"></i>Book Details
-                                </div>
-                                
-                                <div class="detail-item">
-                                    <span class="detail-label">Title:</span>
-                                    <span class="detail-value" id="bookTitle"></span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Author:</span>
-                                    <span class="detail-value" id="bookAuthor"></span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Edition:</span>
-                                    <span class="detail-value" id="bookEdition"></span>
-                                </div>
+                                <div class="detail-section-title"><i class="fas fa-book me-2"></i>Book Details</div>
+                                <div class="detail-item"><span class="detail-label">Title:</span><span class="detail-value" id="bookTitle"></span></div>
+                                <div class="detail-item"><span class="detail-label">Author:</span><span class="detail-value" id="bookAuthor"></span></div>
+                                <div class="detail-item"><span class="detail-label">Edition:</span><span class="detail-value" id="bookEdition"></span></div>
                             </div>
                             
-                            <!-- Issue Details Section -->
                             <div class="detail-section">
-                                <div class="detail-section-title">
-                                    <i class="fas fa-calendar-alt me-2"></i>Issue Details
-                                </div>
-                                
-                                <div class="detail-item">
-                                    <span class="detail-label">Issue Date:</span>
-                                    <span class="detail-value" id="issueDate"></span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Due Date:</span>
-                                    <span class="detail-value" id="dueDate"></span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Status:</span>
-                                    <span class="detail-value" id="status"></span>
-                                </div>
-                                <div class="detail-item" id="fineContainer" style="display:none;">
-                                    <span class="detail-label">Fine Amount:</span>
-                                    <span class="detail-value fine-amount" id="fineAmount"></span>
-                                </div>
-                                <div class="detail-item" id="daysOverdueContainer" style="display:none;">
-                                    <span class="detail-label">Days Overdue:</span>
-                                    <span class="detail-value" id="daysOverdue"></span>
-                                </div>
+                                <div class="detail-section-title"><i class="fas fa-calendar-alt me-2"></i>Issue Details</div>
+                                <div class="detail-item"><span class="detail-label">Issue Date:</span><span class="detail-value" id="issueDate"></span></div>
+                                <div class="detail-item"><span class="detail-label">Due Date:</span><span class="detail-value" id="dueDate"></span></div>
+                                <div class="detail-item"><span class="detail-label">Status:</span><span class="detail-value" id="status"></span></div>
+                                <div class="detail-item" id="fineContainer" style="display:none;"><span class="detail-label">Fine Amount:</span><span class="detail-value fine-amount" id="fineAmount"></span></div>
+                                <div class="detail-item" id="daysOverdueContainer" style="display:none;"><span class="detail-label">Days Overdue:</span><span class="detail-value" id="daysOverdue"></span></div>
                             </div>
                             
-                            <!-- Renew Date Section -->
                             <div class="due-date-picker" id="renewDateContainer" style="display:none;">
-                                <label class="form-label">
-                                    <i class="fas fa-calendar-plus me-2"></i>Select New Due Date
-                                </label>
+                                <label class="form-label"><i class="fas fa-calendar-plus me-2"></i>Select New Due Date</label>
                                 <input type="date" class="form-control" id="renewDate" required>
                             </div>
                         </div>
                         
                         <div class="d-flex justify-content-end gap-2 mt-4" id="actionBtnContainer" style="display:none;">
-                            <button type="button" id="renewBtn" class="btn btn-renew">
-                                <i class="fas fa-sync-alt me-2"></i>Renew Book
-                            </button>
-                            <button type="button" id="returnBtn" class="btn btn-success">
-                                <i class="fas fa-check-circle me-2"></i>Submit Book
-                            </button>
+                            <button type="button" id="renewBtn" class="btn btn-renew"><i class="fas fa-sync-alt me-2"></i>Renew Book</button>
+                            <button type="button" id="returnBtn" class="btn btn-success"><i class="fas fa-check-circle me-2"></i>Submit Book</button>
                         </div>
                     </div>
                 </div>
@@ -318,50 +205,44 @@
 
     <script>
     $(document).ready(function() {
-        // Initialize theme
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'light';
             $('html').attr('data-bs-theme', savedTheme);
-            updateThemeIcon(savedTheme);
+            $('#themeToggle i').removeClass('fa-moon fa-sun').addClass(savedTheme === 'dark' ? 'fa-sun' : 'fa-moon');
         }
 
-        function updateThemeIcon(theme) {
-            const icon = $('#themeToggle i');
-            icon.removeClass('fa-moon fa-sun');
-            if (theme === 'dark') {
-                icon.addClass('fa-sun');
-            } else {
-                icon.addClass('fa-moon');
-            }
-        }
-
-        // Theme toggle
         $('#themeToggle').click(function() {
             const currentTheme = $('html').attr('data-bs-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             $('html').attr('data-bs-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            updateThemeIcon(newTheme);
+            $('#themeToggle i').removeClass('fa-moon fa-sun').addClass(newTheme === 'dark' ? 'fa-sun' : 'fa-moon');
         });
 
         initTheme();
 
-        // Auto-uppercase CRN input
         $('#crn').on('input', function() {
             this.value = this.value.toUpperCase();
         });
 
-        // View Details Button
         $('#viewBtn').click(function() {
             const crn = $('#crn').val().trim();
             const accessionNo = $('#accessionNo').val().trim();
 
-            // Clear previous errors
             $('.is-invalid').removeClass('is-invalid');
             $('.invalid-feedback').remove();
 
-            // Validate inputs
             let isValid = true;
+            if (!crn && !accessionNo) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing Fields',
+                    text: 'Please enter both Student CRN and Accession Number.',
+                    confirmButtonColor: '#4e73df'
+                });
+                $('#crn, #accessionNo').addClass('is-invalid');
+                return;
+            }
             if (!crn) {
                 $('#crn').addClass('is-invalid');
                 $('#crn').after('<div class="invalid-feedback">CRN is required</div>');
@@ -375,71 +256,25 @@
 
             if (!isValid) return;
 
-            // Show loading state
             const $viewBtn = $(this);
             $viewBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Loading...');
 
-            // AJAX request with error handling
             $.ajax({
                 url: 'FetchReturnData',
                 type: 'POST',
-                data: { 
-                    crn: crn, 
-                    accessionNo: accessionNo 
-                },
+                data: { crn: crn, accessionNo: accessionNo },
                 dataType: 'json',
-                timeout: 10000,
                 success: function(response) {
                     if (response.success) {
                         displayDetails(response);
                         $('#resultCard, #actionBtnContainer').fadeIn();
-                        
-                        // Set card status based on book status
-                        setCardStatus(response.data.status);
-                        
-                        // Handle buttons based on status
-                        if (response.data.status === 'RETURNED') {
-                            $('#renewBtn, #returnBtn').prop('disabled', true);
-                            $('#renewDateContainer').hide();
-                        } else if (response.data.status === 'DEFAULTER') {
-                            $('#renewBtn, #returnBtn').prop('disabled', true);
-                            $('#renewDateContainer').hide();
-                            $('#fineContainer, #daysOverdueContainer').show();
-                        } else if (response.data.status === 'OVERDUE') {
-                            if (response.data.days_overdue > 14) {
-                                $('#renewBtn').prop('disabled', true);
-                            } else {
-                                $('#renewBtn').prop('disabled', false);
-                            }
-                            $('#returnBtn').prop('disabled', false);
-                            $('#fineContainer, #daysOverdueContainer').show();
-                            $('#renewDateContainer').hide();
-                        } else if (response.data.status === 'ON DUE') {
-                            $('#renewBtn').prop('disabled', false);
-                            $('#returnBtn').prop('disabled', false);
-                            $('#fineContainer, #daysOverdueContainer').hide();
-                            $('#renewDateContainer').hide();
-                        } else {
-                            $('#renewBtn, #returnBtn').prop('disabled', false);
-                            const tomorrow = new Date();
-                            tomorrow.setDate(tomorrow.getDate() + 1);
-                            $('#renewDate').attr('min', tomorrow.toISOString().split('T')[0]);
-                        }
                     } else {
-                        showError('Error', response.message || 'No record found');
+                        Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'No record found' });
                         $('#resultCard').hide();
                     }
                 },
-                error: function(xhr, status, error) {
-                    let errorMsg = 'Failed to fetch details';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMsg += ': ' + xhr.responseJSON.message;
-                    } else if (status === 'timeout') {
-                        errorMsg = 'Request timed out. Please try again.';
-                    } else if (error) {
-                        errorMsg += ': ' + error;
-                    }
-                    showError('Error', errorMsg);
+                error: function() {
+                    Swal.fire({ icon: 'error', title: 'Connection Error', text: 'Failed to fetch details.' });
                 },
                 complete: function() {
                     $viewBtn.prop('disabled', false).html('<i class="fas fa-eye me-2"></i>View Details');
@@ -447,199 +282,74 @@
             });
         });
 
-        function setCardStatus(status) {
-            // Remove all status classes first
-            $('#resultCard').removeClass('card-status-pending card-status-ondue card-status-overdue card-status-defaulter card-status-returned');
+        function displayDetails(response) {
+            const data = response.data;
+            $('#studentName').text(data.student_name || 'N/A');
+            $('#studentContact').text(data.contact || 'N/A');
+            $('#studentCourse').text(data.course || 'N/A');
+            $('#bookTitle').text(data.book_title || 'N/A');
+            $('#bookAuthor').text(data.author || 'N/A');
+            $('#bookEdition').text(data.edition || 'N/A');
+            $('#issueDate').text(data.issue_date || 'N/A');
+            $('#dueDate').text(data.due_date || 'N/A');
             
-            // Add the appropriate status class
-            switch(status) {
-                case 'PENDING':
-                    $('#resultCard').addClass('card-status-pending');
-                    break;
-                case 'ON DUE':
-                    $('#resultCard').addClass('card-status-ondue');
-                    break;
-                case 'OVERDUE':
-                    $('#resultCard').addClass('card-status-overdue');
-                    break;
-                case 'DEFAULTER':
-                    $('#resultCard').addClass('card-status-defaulter');
-                    break;
-                case 'RETURNED':
-                    $('#resultCard').addClass('card-status-returned');
-                    break;
-                default:
-                    $('#resultCard').addClass('card-status-pending');
+            // Status styling logic
+            let rawStatus = (data.status || 'ISSUED').toUpperCase();
+            let badgeClass = 'status-issued';
+            let cardClass = 'card-status-ondue';
+            
+            if (rawStatus === 'OVERDUE') {
+                badgeClass = 'status-overdue';
+                cardClass = 'card-status-overdue';
+            } else if (rawStatus === 'DEFAULTER') {
+                badgeClass = 'status-defaulter';
+                cardClass = 'card-status-defaulter';
+            } else if (rawStatus === 'RETURNED') {
+                badgeClass = 'status-returned';
+                cardClass = 'card-status-returned';
+            } else {
+                rawStatus = 'ISSUED';
             }
-        }
 
-        function displayDetails(data) {
-            // Student Details
-            $('#studentName').text(data.data.student_name || 'N/A');
-            $('#studentContact').text(data.data.contact || 'N/A');
-            $('#studentCourse').text(data.data.course || 'N/A');
-            
-            // Book Details
-            $('#bookTitle').text(data.data.book_title || 'N/A');
-            $('#bookAuthor').text(data.data.author || 'N/A');
-            $('#bookEdition').text(data.data.edition || 'N/A');
-            
-            // Issue Details
-            $('#issueDate').text(formatDate(data.data.issue_date) || 'N/A');
-            $('#dueDate').text(formatDate(data.data.due_date) || 'N/A');
-            
-            // Status with badge
-            const status = data.data.status || 'PENDING';
-            let statusClass = 'status-pending';
-            let statusText = status;
-            
-            switch(status) {
-                case 'ON DUE':
-                    statusClass = 'status-ondue';
-                    break;
-                case 'OVERDUE':
-                    statusClass = 'status-overdue';
-                    break;
-                case 'DEFAULTER':
-                    statusClass = 'status-defaulter';
-                    break;
-                case 'RETURNED':
-                    statusClass = 'status-returned';
-                    break;
-                default:
-                    statusClass = 'status-pending';
-            }
-            
-            $('#status').html(`<span class="status-badge ${statusClass}">${statusText}</span>`);
-            
-            // Fine amount and days overdue
-            if (data.data.fine_amount > 0) {
-                $('#fineAmount').text('₹' + data.data.fine_amount.toFixed(2));
+            $('#status').html('<span class="status-badge ' + badgeClass + '">' + rawStatus + '</span>');
+            $('#resultCard').removeClass('card-status-pending card-status-ondue card-status-overdue card-status-defaulter card-status-returned').addClass(cardClass);
+
+            if (data.fine_amount > 0) {
+                $('#fineAmount').text('₹' + parseFloat(data.fine_amount).toFixed(2));
                 $('#fineContainer').show();
             } else {
                 $('#fineContainer').hide();
             }
-            
-            if (data.data.days_overdue > 0) {
-                $('#daysOverdue').text(data.data.days_overdue + ' days');
+
+            if (data.days_overdue > 0) {
+                $('#daysOverdue').text(data.days_overdue + ' days');
                 $('#daysOverdueContainer').show();
             } else {
                 $('#daysOverdueContainer').hide();
             }
-            
-            // Store data for return/renew
-            $('#resultCard').data('issueData', {
-                issueId: data.data.issue_id,
-                crn: data.data.crn,
-                accessionNo: data.data.accession_number,
-                currentDueDate: data.data.due_date,
-                fineAmount: data.data.fine_amount || 0,
-                daysOverdue: data.data.days_overdue || 0,
-                status: status
-            });
-        }
-        
-        function formatDate(dateString) {
-            if (!dateString) return 'N/A';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-IN');
+
+            $('#resultCard').data('issueData', { issue_id: data.issue_id });
         }
 
-        function showError(title, message) {
-            Swal.fire({
-                icon: 'error',
-                title: title,
-                text: message,
-                confirmButtonColor: '#4e73df'
-            });
-        }
-
-        // Renew Book Button
-        $('#renewBtn').click(function() {
+        $('#returnBtn').click(function() {
             const issueData = $('#resultCard').data('issueData');
-            
-            // Show renew date container if not already visible
-            if ($('#renewDateContainer').is(':hidden')) {
-                $('#renewDateContainer').fadeIn();
+
+            if (!issueData || !issueData.issue_id) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Action Required',
+                    text: 'Please click "View Details" first.',
+                    confirmButtonColor: '#4e73df'
+                });
                 return;
             }
-            
-            const renewDate = $('#renewDate').val();
-            
-            // Clear previous errors
-            $('#renewDate').removeClass('is-invalid');
-            $('.invalid-feedback').remove();
 
-            // Validate renew date
-            let isValid = true;
-            if (!renewDate) {
-                $('#renewDate').addClass('is-invalid');
-                $('#renewDate').after('<div class="invalid-feedback">Please select a new due date</div>');
-                isValid = false;
-            } else {
-                const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-                if (!dateRegex.test(renewDate)) {
-                    $('#renewDate').addClass('is-invalid');
-                    $('#renewDate').after('<div class="invalid-feedback">Please use YYYY-MM-DD format</div>');
-                    isValid = false;
-                } else {
-                    const selectedDate = new Date(renewDate);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    
-                    if (selectedDate <= today) {
-                        $('#renewDate').addClass('is-invalid');
-                        $('#renewDate').after('<div class="invalid-feedback">New due date must be after today</div>');
-                        isValid = false;
-                    }
-                }
-            }
-
-            if (!isValid) return;
-
-            const $renewBtn = $(this);
-            $renewBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Processing...');
-
-            issueData.newDueDate = renewDate;
-
-            $.ajax({
-                url: 'RenewBook',
-                type: 'POST',
-                data: issueData,
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: response.message,
-                            confirmButtonColor: '#4e73df'
-                        }).then(() => {
-                            // Refresh the details
-                            $('#viewBtn').click();
-                            $('#renewDateContainer').hide();
-                        });
-                    } else {
-                        showError('Error', response.message);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    showError('Error', 'Failed to renew book: ' + (xhr.responseJSON?.message || error));
-                },
-                complete: function() {
-                    $renewBtn.prop('disabled', false).html('<i class="fas fa-sync-alt me-2"></i>Renew Book');
-                }
-            });
-        });
-
-        // Return Book Button
-        $('#returnBtn').click(function() {
             Swal.fire({
                 title: 'Confirm Return',
                 text: 'Are you sure you want to mark this book as returned?',
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#4e73df',
+                confirmButtonColor: '#1cc88a',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, return it!'
             }).then((result) => {
@@ -647,12 +357,10 @@
                     const $returnBtn = $(this);
                     $returnBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Processing...');
 
-                    const issueData = $('#resultCard').data('issueData');
-
                     $.ajax({
                         url: 'ReturnBook',
                         type: 'POST',
-                        data: issueData,
+                        data: { issue_id: issueData.issue_id },
                         dataType: 'json',
                         success: function(response) {
                             if (response.success) {
@@ -660,17 +368,16 @@
                                     icon: 'success',
                                     title: 'Success!',
                                     text: response.message,
-                                    confirmButtonColor: '#4e73df'
+                                    confirmButtonColor: '#1cc88a'
                                 }).then(() => {
-                                    // Refresh the form
                                     resetForm();
                                 });
                             } else {
-                                showError('Error', response.message);
+                                Swal.fire({ icon: 'error', title: 'Error', text: response.message });
                             }
                         },
-                        error: function(xhr, status, error) {
-                            showError('Error', 'Failed to return book: ' + (xhr.responseJSON?.message || error));
+                        error: function() {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to process return request.' });
                         },
                         complete: function() {
                             $returnBtn.prop('disabled', false).html('<i class="fas fa-check-circle me-2"></i>Submit Book');
@@ -680,22 +387,8 @@
             });
         });
 
-        // Reset Button
         $('#resetBtn').click(function() {
-            Swal.fire({
-                title: 'Reset Form',
-                text: 'Are you sure you want to clear all fields?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#4e73df',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, reset it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    resetForm();
-                    Swal.fire('Reset!', 'The form has been reset.', 'success');
-                }
-            });
+            resetForm();
         });
 
         function resetForm() {
@@ -705,50 +398,8 @@
             $('.is-invalid').removeClass('is-invalid');
             $('.invalid-feedback').remove();
             $('#resultCard').removeData('issueData');
-            $('#renewDate').val('');
             $('#crn').focus();
-            $('#resultCard').removeClass('card-status-pending card-status-ondue card-status-overdue card-status-defaulter card-status-returned');
         }
-
-        // Input validation
-        $('#crn, #accessionNo').on('blur', function() {
-            const $input = $(this);
-            if (!$input.val().trim()) {
-                $input.addClass('is-invalid');
-                if (!$input.next('.invalid-feedback').length) {
-                    $input.after('<div class="invalid-feedback">This field is required</div>');
-                }
-            } else {
-                $input.removeClass('is-invalid');
-                $input.next('.invalid-feedback').remove();
-            }
-        });
-
-        $('#renewDate').on('change', function() {
-            const $input = $(this);
-            const renewDate = $input.val();
-            
-            $input.removeClass('is-invalid');
-            $input.next('.invalid-feedback').remove();
-            
-            if (!renewDate) return;
-            
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateRegex.test(renewDate)) {
-                $input.addClass('is-invalid');
-                $input.after('<div class="invalid-feedback">Please use YYYY-MM-DD format</div>');
-                return;
-            }
-            
-            const selectedDate = new Date(renewDate);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            if (selectedDate <= today) {
-                $input.addClass('is-invalid');
-                $input.after('<div class="invalid-feedback">New due date must be after today</div>');
-            }
-        });
     });
     </script>
 </body>

@@ -57,12 +57,6 @@
             color: var(--bs-body-color);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
-        .form-control:focus, .form-select:focus {
-            background-color: var(--card-bg);
-            color: var(--bs-body-color);
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
-        }
         .search-card {
             border-left: 0.25rem solid var(--primary-color) !important;
         }
@@ -92,7 +86,6 @@
             vertical-align: middle;
             border-top: 1px solid rgba(0, 0, 0, 0.05);
         }
-        .student-name { font-weight: 500; }
         .record-info { font-size: 0.875rem; color: var(--secondary-color); }
         .status-badge {
             padding: 0.35em 0.65em;
@@ -110,19 +103,6 @@
         .status-defaulter { background-color: var(--danger-color); color: white; }
         .status-returned { background-color: var(--info-color); color: white; }
         .filter-label { font-weight: 500; font-size: 0.9rem; margin-bottom: 0.25rem; }
-        .dataTables_wrapper .dataTables_filter input {
-            background-color: var(--card-bg);
-            color: var(--bs-body-color);
-            border: 1px solid rgba(0,0,0,0.1);
-            border-radius: 0.35rem;
-            padding: 0.375rem 0.75rem;
-        }
-        .dataTables_wrapper .dataTables_length select {
-            background-color: var(--card-bg);
-            color: var(--bs-body-color);
-            border: 1px solid rgba(0,0,0,0.1);
-            border-radius: 0.35rem;
-        }
         @media print { .no-print { display: none !important; } }
     </style>
 </head>
@@ -227,10 +207,6 @@
                                 <tbody></tbody>
                             </table>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center p-3 border-top">
-                            <div id="recordInfo" class="record-info"></div>
-                            <nav><ul class="pagination mb-0" id="pagination"></ul></nav>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -246,7 +222,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Theme toggle
             const themeToggle = document.getElementById('themeToggle');
             if (localStorage.getItem('theme') === 'dark') {
                 document.documentElement.setAttribute('data-bs-theme', 'dark');
@@ -265,7 +240,6 @@
                 table.ajax.reload(null, false);
             });
 
-            // DataTable
             const table = $('#allIssuesTable').DataTable({
                 ajax: {
                     url: 'ViewAllIssuedBook',
@@ -309,61 +283,37 @@
                         data: 'status',
                         render: function(d) {
                             let cls = 'status-issued';
-                            if (d && d.toUpperCase() === 'RETURNED') cls = 'status-returned';
-                            else if (d && d.toUpperCase() === 'OVERDUE') cls = 'status-overdue';
-                            else if (d && d.toUpperCase() === 'DEFAULTER') cls = 'status-defaulter';
-                            return '<span class="status-badge ' + cls + '">' + (d || 'ISSUED') + '</span>';
+                            const statusText = d ? d.toUpperCase() : 'ISSUED';
+                            if (statusText === 'RETURNED') cls = 'status-returned';
+                            else if (statusText === 'OVERDUE') cls = 'status-overdue';
+                            else if (statusText === 'DEFAULTER') cls = 'status-defaulter';
+                            return '<span class="status-badge ' + cls + '">' + statusText + '</span>';
                         }
                     },
                     { 
-                        data: null,
-                        render: function(row) {
-                            if (row.status === 'OVERDUE' && row.dueDate) {
-                                const due = new Date(row.dueDate), today = new Date();
-                                const days = Math.ceil((today - due) / (1000*60*60*24));
-                                return Math.ceil(days / 7) * 50;
-                            }
-                            return row.fine_amount || '0';
+                        data: 'fine_amount',
+                        render: function(data) {
+                            return '₹' + parseFloat(data || 0).toFixed(2);
                         }
                     }
                 ],
                 responsive: true,
                 scrollX: true,
-                scrollCollapse: true,
                 scrollY: '60vh',
                 language: {
                     emptyTable: "No records found",
                     search: "_INPUT_",
-                    searchPlaceholder: "Search...",
-                    lengthMenu: "Show _MENU_ entries",
-                    info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                    infoEmpty: "Showing 0 to 0 of 0 entries",
-                    infoFiltered: "(filtered from _MAX_ total entries)",
-                    paginate: {
-                        first: "First",
-                        last: "Last",
-                        next: "Next",
-                        previous: "Previous"
-                    }
-                },
-                dom: '<"top"<"d-flex justify-content-between align-items-center"lf>>rt<"bottom"<"d-flex justify-content-between align-items-center"ip>>',
-                initComplete: function() {
-                    $('.dataTables_filter input').attr('placeholder', 'Search...');
+                    searchPlaceholder: "Search records..."
                 }
             });
 
-            // Apply filters
             $('#applyFilter').click(function() { table.ajax.reload(); });
             $('#resetFilter').click(function() {
                 $('#crnFilter, #studentNameFilter, #fromDate, #toDate').val('');
                 $('#courseFilter, #statusFilter').val('');
                 table.ajax.reload();
             });
-            $('.filter-container input, .filter-container select').on('keypress change', function(e) {
-                if (e.which === 13 || e.type === 'change') $('#applyFilter').click();
-            });
 
-            // ---- PDF Generation (same as studentRecords.jsp) ----
             $('#printPdfBtn').click(function() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'pt', 'a4');
@@ -410,78 +360,12 @@
                         body: data,
                         styles: { fontSize: 8, cellPadding: 3 },
                         headStyles: { fillColor: [78,115,223], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                        columnStyles: {
-                            0: { halign: 'center' },
-                            1: { halign: 'center' },
-                            5: { halign: 'center' },
-                            13: { halign: 'right' }
-                        },
-                        margin: { top: 20 + logoHeight + 40, left: 40, right: 40 },
-                        didDrawPage: function(data) {
-                            doc.setFontSize(10);
-                            doc.setTextColor(150);
-                            doc.text('Page ' + data.pageNumber + ' of ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 20);
-                        }
+                        margin: { top: 20 + logoHeight + 40, left: 40, right: 40 }
                     });
                     doc.save("All_Issued_Books_Report_" + new Date().toISOString().slice(0,10) + ".pdf");
-                    Swal.fire({ icon: 'success', title: 'PDF Generated', text: 'All records exported', timer: 2000, showConfirmButton: false });
                 };
-
                 img.onerror = function() {
-                    Swal.fire({ icon: 'warning', title: 'Logo not found', text: 'Generating PDF without logo' });
-                    // Fallback without logo
-                    let yPos = 40;
-                    doc.setFontSize(18);
-                    doc.setTextColor(40);
-                    doc.setFont("helvetica", "bold");
-                    doc.text("All Issued Books Report", 40, yPos);
-                    yPos += 30;
-                    const now = new Date();
-                    doc.setFontSize(10);
-                    doc.setFont("helvetica", "normal");
-                    doc.text("Generated on: " + now.toLocaleString(), 40, yPos);
-                    yPos += 20;
-                    doc.setDrawColor(200,200,200);
-                    doc.line(40, yPos, doc.internal.pageSize.width - 40, yPos);
-                    yPos += 20;
-
-                    const headers = ["Issue ID", "CRN", "Student", "Contact", "Course", "Accession", "Title", "Author", "Edition", "Issue Date", "Due Date", "Return Date", "Status", "Fine"];
-                    const data = [];
-                    $('#allIssuesTable tbody tr').each(function() {
-                        const rowData = [];
-                        $(this).find('td').each(function() {
-                            let text = $(this).text().trim();
-                            if ($(this).find('.status-badge').length) {
-                                text = $(this).find('.status-badge').text().trim();
-                            }
-                            rowData.push(text);
-                        });
-                        if (rowData.length > 0 && rowData[0] !== 'No records found') {
-                            data.push(rowData);
-                        }
-                    });
-
-                    doc.autoTable({
-                        startY: yPos,
-                        head: [headers],
-                        body: data,
-                        styles: { fontSize: 8, cellPadding: 3 },
-                        headStyles: { fillColor: [78,115,223], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                        columnStyles: {
-                            0: { halign: 'center' },
-                            1: { halign: 'center' },
-                            5: { halign: 'center' },
-                            13: { halign: 'right' }
-                        },
-                        margin: { top: yPos, left: 40, right: 40 },
-                        didDrawPage: function(data) {
-                            doc.setFontSize(10);
-                            doc.setTextColor(150);
-                            doc.text('Page ' + data.pageNumber + ' of ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 20);
-                        }
-                    });
                     doc.save("All_Issued_Books_Report_" + new Date().toISOString().slice(0,10) + ".pdf");
-                    Swal.fire({ icon: 'success', title: 'PDF Generated', text: 'PDF created without logo', timer: 2000, showConfirmButton: false });
                 };
             });
         });

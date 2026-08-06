@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <link rel="icon" type="image/x-icon" href="logo2.jpg">
+    <link rel="icon" type="image/x-icon" href="logo2.jpg">
     <title>Library Book Issue</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -315,22 +315,24 @@
                         tomorrow.setDate(tomorrow.getDate() + 1);
                         $('#dueDate').attr('min', tomorrow.toISOString().split('T')[0]);
                     } else {
+                        // If already issued or book not found, show warning/error and hide details card
                         Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
+                            icon: 'warning',
+                            title: 'Unavailable',
                             text: response.message,
-                            confirmButtonColor: '#4e73df'
+                            confirmButtonColor: '#f6c23e'
                         });
                         $('#resultCard').hide();
                     }
                 },
-                error: function(xhr, status, error) {
+                error: function() {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
                         text: 'Failed to fetch details. Please check your connection and try again.',
                         confirmButtonColor: '#4e73df'
                     });
+                    $('#resultCard').hide();
                 },
                 complete: function() {
                     $viewBtn.prop('disabled', false).html('<i class="fas fa-eye me-2"></i>View Details');
@@ -377,14 +379,12 @@
                 $('#dueDateError').text('Please select a due date').show();
                 isValid = false;
             } else {
-                // Validate date format
                 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
                 if (!dateRegex.test(dueDate)) {
                     $('#dueDate').addClass('is-invalid');
                     $('#dueDateError').text('Please use YYYY-MM-DD format').show();
                     isValid = false;
                 } else {
-                    // Validate date is in the future
                     const selectedDate = new Date(dueDate);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
@@ -401,7 +401,6 @@
                 return;
             }
 
-            // Show loading state
             const $issueBtn = $(this);
             $issueBtn.prop('disabled', true).html('<span class="loading-spinner me-2"></span>Processing...');
 
@@ -421,25 +420,20 @@
                             text: response.message,
                             confirmButtonColor: '#4e73df',
                             showConfirmButton: true,
-                            timer: 3000,
-                            willClose: () => {
-                                resetForm();
-                            }
-                        }).then((result) => {
-                            if (result.isConfirmed || result.isDismissed) {
-                                resetForm();
-                            }
+                            timer: 3000
+                        }).then(() => {
+                            resetForm();
                         });
                     } else {
                         Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
+                            icon: 'warning',
+                            title: 'Notice',
                             text: response.message,
-                            confirmButtonColor: '#4e73df'
+                            confirmButtonColor: '#f6c23e'
                         });
                     }
                 },
-                error: function(xhr, status, error) {
+                error: function() {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
@@ -466,40 +460,22 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     resetForm();
-                    Swal.fire(
-                        'Reset!',
-                        'The form has been reset.',
-                        'success'
-                    );
+                    Swal.fire('Reset!', 'The form has been reset.', 'success');
                 }
             });
         });
 
         function resetForm() {
-            // Reset form fields
             $('#issueForm')[0].reset();
-            
-            // Clear displayed data
             $('#studentName, #studentContact, #studentCourse, #bookTitle, #bookAuthor, #bookEdition').text('');
-            
-            // Hide result sections
             $('#resultCard, #dueDateContainer, #issueBtnContainer').hide();
-            
-            // Clear errors
             $('.is-invalid').removeClass('is-invalid');
             $('.invalid-feedback').hide();
-            
-            // Clear stored data
             $('#resultCard').removeData('issueData');
-            
-            // Reset date picker
             $('#dueDate').val('');
-            
-            // Focus on first input field
             $('#crn').focus();
         }
 
-        // Input validation on blur
         $('#crn, #accessionNo').on('blur', function() {
             const $input = $(this);
             const $error = $input.next('.invalid-feedback');
@@ -513,19 +489,16 @@
             }
         });
 
-        // Date input validation
         $('#dueDate').on('change', function() {
             const $input = $(this);
             const $error = $('#dueDateError');
             const dueDate = $input.val();
             
-            // Clear previous errors
             $input.removeClass('is-invalid');
             $error.hide();
             
             if (!dueDate) return;
             
-            // Validate date format
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(dueDate)) {
                 $input.addClass('is-invalid');
@@ -533,7 +506,6 @@
                 return;
             }
             
-            // Validate date is in the future
             const selectedDate = new Date(dueDate);
             const today = new Date();
             today.setHours(0, 0, 0, 0);

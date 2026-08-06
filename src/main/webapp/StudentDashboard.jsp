@@ -25,7 +25,7 @@ if (fullName != null && !fullName.trim().isEmpty()) {
     initials = parts.length > 1 ? parts[0].substring(0, 1).toUpperCase() + parts[parts.length - 1].substring(0, 1).toUpperCase() : parts[0].substring(0, 1).toUpperCase();
 }
 
-// --- FETCH DASHBOARD COUNTS DIRECTLY FROM DATABASE ---
+// --- FETCH DASHBOARD COUNTS DIRECTLY FROM CLOUD DATABASE ---
 int myIssuedCount = 0;
 int availableCount = 0;
 int ebooksCount = 0;
@@ -34,8 +34,8 @@ int downloadEBooksCount = 0;
 Connection conn = null;
 try {
     Class.forName("com.mysql.cj.jdbc.Driver");
-    // Connect to the database
-    conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/library?useSSL=false&serverTimezone=UTC", "root", "Adishiv@7318");
+    // FIXED: Point to Aiven Cloud Database where all data lives
+    conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
     
     // Count 1: Issued Books Count for this specific student
     try (PreparedStatement ps1 = conn.prepareStatement("SELECT COUNT(*) FROM book_issues WHERE crn = ?")) {
@@ -58,10 +58,15 @@ try {
         } catch (Exception e2) { /* Ignore */ }
     }
     
-    // Count 3: Total E-Books
-    try (PreparedStatement ps3 = conn.prepareStatement("SELECT COUNT(*) FROM ebooks")) {
-        try (ResultSet rs3 = ps3.executeQuery()) {
-            if (rs3.next()) ebooksCount = rs3.getInt(1);
+    // Count 3: Total E-Books Check using safe table structure check
+    try {
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, author VARCHAR(255) NOT NULL, edition VARCHAR(100), description TEXT, pdf_url VARCHAR(500) NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)";
+        try (Statement stmt = conn.createStatement()) { stmt.execute(createTableSQL); }
+        
+        try (PreparedStatement ps3 = conn.prepareStatement("SELECT COUNT(*) FROM ebooks")) {
+            try (ResultSet rs3 = ps3.executeQuery()) {
+                if (rs3.next()) ebooksCount = rs3.getInt(1);
+            }
         }
     } catch(Exception e) { /* Ignore */ }
     
@@ -317,7 +322,7 @@ try {
                 <!-- Count 3: Total ebooks available -->
                 <div class="card" onclick="window.location.href='ViewEBooks.jsp'">
                     <div>
-                        <div class="numbers"><%= ebooksCount %></div>
+                        <div class="numbers" id="eBooksCount"><%= ebooksCount %></div>
                         <div class="cardName">Total E-Books</div>
                     </div>
                     <div class="iconBx"><ion-icon name="desktop-outline"></ion-icon></div>
@@ -447,25 +452,15 @@ try {
     </div>
     
 <script>
-  function fetchPendingBooksCount() {
-    fetch('PendingBooksCount')
-      .then(response => { if (!response.ok) throw new Error('Pending books count fetch failed'); return response.text(); })
-      .then(count => { document.getElementById("pendingCount").innerText = count; })
-      .catch(error => { document.getElementById("pendingCount").innerText = "0"; });
-  }
-
+  // Ensure the cloud count updates properly
   function fetchEBooksCount() {
     fetch('EBookActionServlet?action=count')
       .then(response => response.text())
       .then(count => { document.getElementById("eBooksCount").innerText = count || "0"; })
-      .catch(error => { document.getElementById("eBooksCount").innerText = "0"; });
+      .catch(error => { console.log(error); });
   }
 
   function initializeCounts() {
-    fetch('BooksCount').then(r => r.text()).then(c => document.getElementById("bookCount").innerText = c).catch(() => document.getElementById("bookCount").innerText = "0");
-    fetch('TotalStudentCount').then(r => r.text()).then(c => document.getElementById("studentCount").innerText = c).catch(() => document.getElementById("studentCount").innerText = "0");
-    fetch('IssuesBooksCount').then(r => r.text()).then(c => document.getElementById("issuedBookCount").innerText = c).catch(() => document.getElementById("issuedBookCount").innerText = "0");
-    fetchPendingBooksCount();
     fetchEBooksCount(); 
   }
 

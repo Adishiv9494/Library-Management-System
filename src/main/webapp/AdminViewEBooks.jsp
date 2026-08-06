@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="lib.png">
     <title>Manage E-Books</title>
-     <link rel="icon" type="image/x-icon" href="logo2.jpg">
+    <link rel="icon" type="image/x-icon" href="logo2.jpg">
     <!-- CSS Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -124,7 +124,8 @@
                 ResultSet rs = null;
                 try {
                     Class.forName("com.mysql.cj.jdbc.Driver");
-                    conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/library?useSSL=false&serverTimezone=UTC", "root", "Adishiv@7318");
+                    // Updated to connect to the unified cloud database connection string
+                    conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
                     
                     // --- AUTOMATIC TABLE CREATION FIX ---
                     String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (" +
@@ -342,7 +343,6 @@
         $('#uploadForm').submit(function(e){
             e.preventDefault();
             
-            // Change button to loading state
             let submitBtn = $(this).find('button[type="submit"]');
             let originalText = submitBtn.html();
             submitBtn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...');

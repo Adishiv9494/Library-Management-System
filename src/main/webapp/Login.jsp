@@ -591,7 +591,7 @@
         }
         .toggle-panel .btn::before { display: none; }
 
-        /* ===== PASSWORD STRENGTH ===== */
+        /* ===== PASSWORD STRENGTH & VALIDATION FEEDBACK ===== */
         .password-feedback { font-size: 11px; margin-top: 4px; text-align: left; padding-left: 4px; transition: all 0.3s ease; font-weight: 500; }
         .password-strength { width: 100%; height: 4px; background: rgba(0, 0, 0, 0.08); border-radius: 2px; margin-top: 6px; overflow: hidden; }
         .password-strength-bar { height: 100%; width: 0%; background: #ef4444; transition: width 0.3s ease, background 0.3s ease; }
@@ -825,7 +825,7 @@
                         <input type="password" name="password" id="regPassword" placeholder=" " required>
                         <label class="floating-label">Password</label>
                         <i class='bx bxs-lock' id="toggleRegPassword"></i>
-                        <div class="password-feedback"></div>
+                        <div class="password-feedback" id="regPasswordFeedback" style="color: #ef4444;">Min 8 chars, 1 uppercase, 1 special, 2 numbers</div>
                         <div class="password-strength"><div class="password-strength-bar"></div></div>
                     </div>
                     <div class="input-box">
@@ -914,15 +914,19 @@
             <h2>Reset Password</h2>
             <p>Create a new password for your account</p>
             <div class="input-box">
-                <input type="password" id="newPassword" placeholder="New Password" required>
+                <input type="password" id="newPassword" placeholder=" " required>
+                <label class="floating-label">New Password</label>
                 <i class='bx bxs-lock' id="toggleNewPassword"></i>
+                <div class="password-feedback" id="newPasswordFeedback" style="color: #ef4444;">Min 8 chars, 1 uppercase, 1 special, 2 numbers</div>
+                <div class="password-strength"><div class="password-strength-bar" id="newPasswordStrengthBar"></div></div>
             </div>
             <div class="input-box">
-                <input type="password" id="confirmNewPassword" placeholder="Confirm New Password" required>
+                <input type="password" id="confirmNewPassword" placeholder=" " required>
+                <label class="floating-label">Confirm New Password</label>
                 <i class='bx bxs-lock' id="toggleConfirmNewPassword"></i>
-                <div class="password-feedback" id="newPasswordFeedback"></div>
+                <div class="password-feedback" id="confirmNewPasswordFeedback"></div>
             </div>
-            <button id="resetPasswordBtn" class="btn">Reset Password</button>
+            <button id="resetPasswordBtn" class="btn" disabled>Reset Password</button>
         </div>
     </div>
 
@@ -1007,10 +1011,7 @@
         // === AUTO READ BOT & TERMS CHECKBOX ===
         document.addEventListener("DOMContentLoaded", function() {
             const termsCheckbox = document.getElementById('termsCheckbox');
-            const registerBtnSubmit = document.getElementById('registerBtn');
             const readBotBtn = document.getElementById('readBotBtn');
-            const regPassword = document.getElementById('regPassword');
-            const confirmPassword = document.getElementById('confirmPassword');
             
             let termsRead = false;
             let privacyRead = false;
@@ -1023,19 +1024,8 @@
                     termsCheckbox.disabled = true;
                     termsCheckbox.checked = false;
                 }
-                toggleSignupButton();
+                if(typeof window.validateForm === 'function') window.validateForm();
             }
-
-            function toggleSignupButton() {
-                const pw = regPassword.value;
-                const conf = confirmPassword.value;
-                const termsOk = termsCheckbox.checked && !termsCheckbox.disabled;
-                const pwOk = pw.length > 0 && pw === conf; 
-                registerBtnSubmit.disabled = !(termsOk && pwOk);
-            }
-
-            regPassword.addEventListener('input', toggleSignupButton);
-            confirmPassword.addEventListener('input', toggleSignupButton);
 
             readBotBtn.addEventListener('click', function() {
                 const termsText = "These are the Terms and Conditions and Privacy Policy for using the Library Admin System. You must keep your admin credentials secure, respect user privacy, and manage library resources responsibly. By creating an account, your data will be stored securely. You have accepted these responsibilities.";
@@ -1127,23 +1117,161 @@
             updateTermsState();
         });
 
-        // === PASSWORD STRENGTH ===
+        // === PASSWORD VALIDATION & STRENGTH LOGIC (REGISTRATION) ===
         document.addEventListener("DOMContentLoaded", function() {
             const passwordInput = document.getElementById('regPassword');
             const confirmPasswordInput = document.getElementById('confirmPassword');
+            const regPasswordFeedback = document.getElementById('regPasswordFeedback');
+            const confirmPasswordFeedback = document.getElementById('confirmPasswordFeedback');
             const strengthBar = document.querySelector('.password-strength-bar');
-            
-            passwordInput.addEventListener('input', function() {
-                let strength = 0;
-                const p = this.value;
-                if(p.length >= 8) strength++; if(p.length >= 12) strength++;
-                if(/[A-Z]/.test(p)) strength++; if(/[a-z]/.test(p)) strength++;
-                if(/[0-9]/.test(p)) strength++; if(/[^A-Za-z0-9]/.test(p)) strength++;
-                strength = Math.min(strength, 5);
-                
-                strengthBar.style.width = (strength * 20) + '%';
-                strengthBar.style.backgroundColor = strength <= 1 ? '#ef4444' : strength <= 3 ? '#f59e0b' : '#10b981';
-            });
+            const registerBtn = document.getElementById('registerBtn');
+
+            function checkPasswordRules(password) {
+                const minLength = password.length >= 8;
+                const hasUpper = /[A-Z]/.test(password);
+                const hasSpecial = /[^A-Za-z0-9]/.test(password);
+                const matchesNumbers = password.match(/\d/g);
+                const hasTwoNumbers = matchesNumbers && matchesNumbers.length >= 2;
+
+                return {
+                    minLength,
+                    hasUpper,
+                    hasSpecial,
+                    hasTwoNumbers,
+                    isValid: minLength && hasUpper && hasSpecial && hasTwoNumbers
+                };
+            }
+
+            function validateForm() {
+                const pwd = passwordInput.value;
+                const confirmPwd = confirmPasswordInput.value;
+                const rules = checkPasswordRules(pwd);
+                const termsChecked = document.getElementById('termsCheckbox').checked;
+
+                let score = 0;
+                if (rules.minLength) score++;
+                if (rules.hasUpper) score++;
+                if (rules.hasSpecial) score++;
+                if (rules.hasTwoNumbers) score++;
+                if (pwd.length >= 12) score++;
+
+                strengthBar.style.width = (score * 20) + '%';
+                strengthBar.style.backgroundColor = score <= 2 ? '#ef4444' : score <= 3 ? '#f59e0b' : '#10b981';
+
+                if (pwd.length === 0) {
+                    regPasswordFeedback.style.color = '#ef4444';
+                    regPasswordFeedback.textContent = 'Min 8 chars, 1 uppercase, 1 special, 2 numbers';
+                } else if (rules.isValid) {
+                    regPasswordFeedback.style.color = '#10b981';
+                    regPasswordFeedback.textContent = 'Strong Password ✓';
+                } else {
+                    regPasswordFeedback.style.color = '#f59e0b';
+                    let missing = [];
+                    if (!rules.minLength) missing.push('8+ chars');
+                    if (!rules.hasUpper) missing.push('1 uppercase');
+                    if (!rules.hasSpecial) missing.push('1 special');
+                    if (!rules.hasTwoNumbers) missing.push('2 numbers');
+                    regPasswordFeedback.textContent = 'Needs: ' + missing.join(', ');
+                }
+
+                if (confirmPwd.length === 0) {
+                    confirmPasswordFeedback.textContent = '';
+                } else if (pwd === confirmPwd) {
+                    confirmPasswordFeedback.style.color = '#10b981';
+                    confirmPasswordFeedback.textContent = 'Passwords Match ✓';
+                } else {
+                    confirmPasswordFeedback.style.color = '#ef4444';
+                    confirmPasswordFeedback.textContent = 'Password Mismatch ✗';
+                }
+
+                if (rules.isValid && pwd === confirmPwd && confirmPwd.length > 0 && termsChecked) {
+                    registerBtn.disabled = false;
+                } else {
+                    registerBtn.disabled = true;
+                }
+            }
+
+            passwordInput.addEventListener('input', validateForm);
+            confirmPasswordInput.addEventListener('input', validateForm);
+            document.getElementById('termsCheckbox').addEventListener('change', validateForm);
+            window.validateForm = validateForm;
+        });
+
+        // === PASSWORD VALIDATION & STRENGTH LOGIC (RESET PASSWORD MODAL) ===
+        document.addEventListener("DOMContentLoaded", function() {
+            const newPasswordInput = document.getElementById('newPassword');
+            const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
+            const newPasswordFeedback = document.getElementById('newPasswordFeedback');
+            const confirmNewPasswordFeedback = document.getElementById('confirmNewPasswordFeedback');
+            const newPasswordStrengthBar = document.getElementById('newPasswordStrengthBar');
+            const resetPasswordBtn = document.getElementById('resetPasswordBtn');
+
+            function checkPasswordRules(password) {
+                const minLength = password.length >= 8;
+                const hasUpper = /[A-Z]/.test(password);
+                const hasSpecial = /[^A-Za-z0-9]/.test(password);
+                const matchesNumbers = password.match(/\d/g);
+                const hasTwoNumbers = matchesNumbers && matchesNumbers.length >= 2;
+
+                return {
+                    minLength,
+                    hasUpper,
+                    hasSpecial,
+                    hasTwoNumbers,
+                    isValid: minLength && hasUpper && hasSpecial && hasTwoNumbers
+                };
+            }
+
+            function validateResetForm() {
+                const np = newPasswordInput.value;
+                const cp = confirmNewPasswordInput.value;
+                const rules = checkPasswordRules(np);
+
+                let score = 0;
+                if (rules.minLength) score++;
+                if (rules.hasUpper) score++;
+                if (rules.hasSpecial) score++;
+                if (rules.hasTwoNumbers) score++;
+                if (np.length >= 12) score++;
+
+                newPasswordStrengthBar.style.width = (score * 20) + '%';
+                newPasswordStrengthBar.style.backgroundColor = score <= 2 ? '#ef4444' : score <= 3 ? '#f59e0b' : '#10b981';
+
+                if (np.length === 0) {
+                    newPasswordFeedback.style.color = '#ef4444';
+                    newPasswordFeedback.textContent = 'Min 8 chars, 1 uppercase, 1 special, 2 numbers';
+                } else if (rules.isValid) {
+                    newPasswordFeedback.style.color = '#10b981';
+                    newPasswordFeedback.textContent = 'Strong Password ✓';
+                } else {
+                    newPasswordFeedback.style.color = '#f59e0b';
+                    let missing = [];
+                    if (!rules.minLength) missing.push('8+ chars');
+                    if (!rules.hasUpper) missing.push('1 uppercase');
+                    if (!rules.hasSpecial) missing.push('1 special');
+                    if (!rules.hasTwoNumbers) missing.push('2 numbers');
+                    newPasswordFeedback.textContent = 'Needs: ' + missing.join(', ');
+                }
+
+                if (cp.length === 0) {
+                    confirmNewPasswordFeedback.textContent = '';
+                } else if (np === cp) {
+                    confirmNewPasswordFeedback.style.color = '#10b981';
+                    confirmNewPasswordFeedback.textContent = 'Passwords Match ✓';
+                } else {
+                    confirmNewPasswordFeedback.style.color = '#ef4444';
+                    confirmNewPasswordFeedback.textContent = 'Password Mismatch ✗';
+                }
+
+                if (np && cp && np === cp && rules.isValid) {
+                    resetPasswordBtn.disabled = false;
+                } else {
+                    resetPasswordBtn.disabled = true;
+                }
+            }
+
+            newPasswordInput.addEventListener('input', validateResetForm);
+            confirmNewPasswordInput.addEventListener('input', validateResetForm);
         });
 
         // === TOGGLE PASSWORD VISIBILITY ===
@@ -1191,11 +1319,17 @@
                 }).then(res => res.text()).then(data => {
                     sendOtpBtn.disabled = false; sendOtpBtn.innerHTML = 'Send OTP';
                     if(data.trim() === "success") {
-                        Swal.fire('OTP Sent', 'Check your email for the OTP.', 'success');
                         forgotModal.style.display = 'none';
-                        otpModal.style.display = 'block';
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'OTP Sent!',
+                            text: 'OTP sent successfully to your email.',
+                            confirmButtonColor: '#7c3aed'
+                        }).then(() => {
+                            otpModal.style.display = 'block';
+                        });
                     } else {
-                        Swal.fire('Error', 'Could not send OTP.', 'error');
+                        Swal.fire('Error', 'Email not registered or could not send OTP.', 'error');
                     }
                 });
             });
@@ -1242,8 +1376,14 @@
                 }).then(res => res.text()).then(data => {
                     resetPwdBtn.disabled = false; resetPwdBtn.innerHTML = 'Reset Password';
                     if(data.trim() === "success") {
-                        Swal.fire('Success', 'Password reset successfully', 'success');
-                        resetModal.style.display = 'none';
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: 'Password successfully changed. Please log in with your new password.',
+                            confirmButtonColor: '#7c3aed'
+                        }).then(() => {
+                            resetModal.style.display = 'none';
+                        });
                     } else {
                         Swal.fire('Error', 'Failed to update password.', 'error');
                     }
@@ -1251,13 +1391,14 @@
             });
         });
 
-        // === FORM SUBMISSION ===
+        // === ENHANCED FORM SUBMISSION (FIXED BULLETPROOF PAYLOAD) ===
         document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault(); 
+                
                 const inputCaptcha = document.getElementById('loginCaptchaInput').value;
                 const hiddenCaptcha = document.getElementById('loginCaptchaHidden').value;
                 if (inputCaptcha !== hiddenCaptcha) {
-                    e.preventDefault();
                     Swal.fire('Error', 'Invalid CAPTCHA', 'error');
                     return;
                 }
@@ -1266,12 +1407,12 @@
                 loginBtn.disabled = true;
                 loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
 
-                const formData = new URLSearchParams();
-                formData.append('action', 'login');
-                formData.append('email', document.querySelector('#loginForm input[name="email"]').value);
-                formData.append('password', document.getElementById('loginPassword').value);
-                formData.append('captchaInput', inputCaptcha);
-                formData.append('captchaText', hiddenCaptcha);
+                // Bulletproof dynamic payload capture to match LibloginSignup.java perfectly
+                const formData = new URLSearchParams(new FormData(this));
+                const emailVal = document.querySelector('#loginForm input[name="email"]').value.trim();
+                formData.set('email', emailVal);
+                formData.set('captchaInput', inputCaptcha);
+                formData.set('captchaText', hiddenCaptcha);
 
                 fetch(this.getAttribute('action'), {
                     method: 'POST',
@@ -1295,20 +1436,19 @@
                     }
                 })
                 .catch(error => {
-                    Swal.fire('Error', 'Login processing failed. Please try again.', 'error');
+                    Swal.fire('Error', 'Invalid email or password', 'error');
                     loginBtn.disabled = false;
                     loginBtn.innerHTML = 'Login';
                 });
-                
-                e.preventDefault(); 
             });
             
             const registerForm = document.getElementById('registerForm');
             if (registerForm) {
                 registerForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+
                     const termsCheckbox = document.getElementById('termsCheckbox');
                     if (!termsCheckbox.checked) {
-                        e.preventDefault();
                         Swal.fire('Terms Not Accepted', 'Please read and accept the Terms & Conditions.', 'warning');
                         return;
                     }
@@ -1316,7 +1456,6 @@
                     const inputCaptcha = document.getElementById('registerCaptchaInput').value;
                     const hiddenCaptcha = document.getElementById('registerCaptchaHidden').value;
                     if (inputCaptcha !== hiddenCaptcha) {
-                        e.preventDefault();
                         Swal.fire('Error', 'Invalid CAPTCHA', 'error');
                         return;
                     }
@@ -1352,8 +1491,6 @@
                         registerBtn.disabled = false;
                         registerBtn.innerHTML = 'Create Account';
                     });
-                    
-                    e.preventDefault();
                 });
             }
         });
