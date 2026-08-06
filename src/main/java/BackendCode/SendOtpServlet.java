@@ -97,7 +97,7 @@ public class SendOtpServlet extends HttpServlet {
         System.out.println("   -> Generated OTP: " + otpValue);
 
         final String senderEmail = "aadityasingh.knp@gmail.com"; 
-        final String senderPassword = "HIDDEN_PASSWORD"; 
+        final String senderPassword = "hsveatgatrwvhqvt"; 
 
         Properties props = new Properties();
         props.put("mail.smtp.host", "smtp.gmail.com");
