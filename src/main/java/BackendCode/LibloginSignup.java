@@ -24,10 +24,10 @@ import java.util.Base64;
 )
 public class LibloginSignup extends HttpServlet {
     
-    // Database configuration
-    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
+    // Database configuration - Restored robust URL and real password
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
-    private static final String DB_PASSWORD = "HIDDEN_PASSWORD";
+    private static final String DB_PASSWORD = "AVNS_M_y84BDpUY38oAAS0w1";
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
