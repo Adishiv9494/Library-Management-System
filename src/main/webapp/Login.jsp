@@ -1253,6 +1253,7 @@
                     newPasswordFeedback.textContent = 'Needs: ' + missing.join(', ');
                 }
 
+                // Confirm password match feedback for reset modal
                 if (cp.length === 0) {
                     confirmNewPasswordFeedback.textContent = '';
                 } else if (np === cp) {
