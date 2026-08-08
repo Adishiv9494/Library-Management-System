@@ -1,40 +1,28 @@
 package BackendCode;
 
-import java.io.*;
+import java.io.IOException;
 import java.sql.*;
-import jakarta.servlet.*;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
-@WebServlet("/IssuedBooksCount")
+@WebServlet("/IssuesBooksCount")
 public class IssuesBooksCount extends HttpServlet {
-    private static final long serialVersionUID = 1L;
-
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        int count = 0;
+        response.setContentType("text/plain");
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection con = DriverManager.getConnection(
-                "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD")) {
-
-                String sql = "SELECT COUNT(*) FROM book_issues WHERE status != 'RETURNED'";
-                try (PreparedStatement ps = con.prepareStatement(sql);
-                     ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        count = rs.getInt(1);
-                    }
-                }
+            Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
+            
+            // Accurately counts books that are currently out (ISSUED, ON DUE, OVERDUE)
+            PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM book_issues WHERE status IN ('ISSUED', 'ON DUE', 'OVERDUE')");
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                response.getWriter().write(String.valueOf(rs.getInt(1)));
+            } else {
+                response.getWriter().write("0");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        response.setContentType("text/plain");
-        response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(String.valueOf(count));
-    }
-
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
+            rs.close(); ps.close(); conn.close();
+        } catch (Exception e) { response.getWriter().write("0"); }
     }
 }

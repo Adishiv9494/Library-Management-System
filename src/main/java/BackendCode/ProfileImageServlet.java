@@ -49,7 +49,7 @@ public class ProfileImageServlet extends HttpServlet {
             String lastName = names.length > 1 ? names[names.length - 1] : "";
 
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD")) {
+            try (Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1")) {
                 
                 String query;
                 PreparedStatement pstmt;

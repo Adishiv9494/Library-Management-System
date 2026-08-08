@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class DatabaseConnection {
 	private static final String URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&serverTimezone=UTC";
 	private static final String USER = "avnadmin";
-	private static final String PASSWORD = "HIDDEN_PASSWORD";
+	private static final String PASSWORD = "AVNS_M_y84BDpUY38oAAS0w1";
 
     static {
         try {

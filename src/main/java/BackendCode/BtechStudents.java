@@ -23,7 +23,7 @@ public class BtechStudents extends HttpServlet {
 
         String dbURL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
         String dbUser = "avnadmin";
-        String dbPassword = "HIDDEN_PASSWORD";
+        String dbPassword = "AVNS_M_y84BDpUY38oAAS0w1";
 
         int successCount = 0;
         int duplicateCount = 0;

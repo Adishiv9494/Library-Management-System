@@ -25,7 +25,7 @@ public class PendingFineServlet extends HttpServlet {
     
     private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
-    private static final String DB_PASS = "HIDDEN_PASSWORD";
+    private static final String DB_PASS = "AVNS_M_y84BDpUY38oAAS0w1";
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         processRequest(request, response);
@@ -49,7 +49,7 @@ public class PendingFineServlet extends HttpServlet {
             try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
                 
                 // Fetch active issued or overdue records
-                String query = "SELECT issue_id, crn, student_name, contact, due_date, status FROM book_issues WHERE status != 'RETURNED'";
+                String query = "SELECT issue_id, crn, student_name,accession_number, contact, due_date, status FROM book_issues WHERE status != 'RETURNED'";
                 
                 try (PreparedStatement pstmt = conn.prepareStatement(query);
                      ResultSet rs = pstmt.executeQuery()) {
@@ -91,6 +91,7 @@ public class PendingFineServlet extends HttpServlet {
                         Map<String, Object> item = new HashMap<>();
                         item.put("crn", rs.getString("crn"));
                         item.put("name", rs.getString("student_name"));
+                        item.put("accession", rs.getString("accession_number"));
                         item.put("contact", rs.getString("contact") != null ? rs.getString("contact") : "N/A");
                         item.put("dueDate", sqlDueDate.toString());
                         item.put("totalFine", fineAmount);

@@ -1,36 +1,27 @@
 package BackendCode;
 
-import java.io.*;
+import java.io.IOException;
 import java.sql.*;
-import jakarta.servlet.*;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
 @WebServlet("/BooksCount")
 public class BooksCount extends HttpServlet {
-    private static final long serialVersionUID = 1L;
-
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        int count = 0;
+        response.setContentType("text/plain");
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            Connection con = DriverManager.getConnection(
-                "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD");
-
-            Statement stmt = con.createStatement();
-            // Fixed reference to lowercase booksdata
-            ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM booksdata");
-
+            Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
+            
+            PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM booksdata");
+            ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                count = rs.getInt(1);
+                response.getWriter().write(String.valueOf(rs.getInt(1)));
+            } else {
+                response.getWriter().write("0");
             }
-
-            con.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        response.setContentType("text/plain");
-        response.getWriter().write(String.valueOf(count));
+            rs.close(); ps.close(); conn.close();
+        } catch (Exception e) { response.getWriter().write("0"); }
     }
 }

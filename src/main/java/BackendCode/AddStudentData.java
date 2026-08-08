@@ -22,7 +22,7 @@ public class AddStudentData extends HttpServlet {
     // Database configuration fixed
     private static final String JDBC_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
     private static final String JDBC_USER = "avnadmin";
-    private static final String JDBC_PASSWORD = "HIDDEN_PASSWORD";
+    private static final String JDBC_PASSWORD = "AVNS_M_y84BDpUY38oAAS0w1";
     
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");

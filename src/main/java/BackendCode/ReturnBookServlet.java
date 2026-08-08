@@ -19,7 +19,7 @@ public class ReturnBookServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
-    private static final String DB_PASS = "HIDDEN_PASSWORD";
+    private static final String DB_PASS = "AVNS_M_y84BDpUY38oAAS0w1";
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");

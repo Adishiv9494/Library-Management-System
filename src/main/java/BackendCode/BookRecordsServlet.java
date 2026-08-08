@@ -1,119 +1,112 @@
 package BackendCode;
 
-import java.io.*;
-import java.sql.*;
-import jakarta.servlet.*;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @WebServlet("/BookRecordsServlet")
 public class BookRecordsServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
-	private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC";
-    private static final String DB_USER = "avnadmin";
-    private static final String DB_PASSWORD = "HIDDEN_PASSWORD";
 
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        
+    // Connects to defaultdb based on exact schema
+    private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
+    private static final String DB_USER = "avnadmin";
+    private static final String DB_PASS = "AVNS_M_y84BDpUY38oAAS0w1";
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
+        PrintWriter out = response.getWriter();
+
+        int page = 1;
+        int limit = 10;
+        String search = request.getParameter("search");
+
+        try {
+            if (request.getParameter("page") != null) page = Integer.parseInt(request.getParameter("page"));
+            if (request.getParameter("limit") != null) limit = Integer.parseInt(request.getParameter("limit"));
+        } catch (NumberFormatException e) {
+            page = 1;
+            limit = 10;
+        }
+
+        int offset = (page - 1) * limit;
+
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-            
-            int page = Integer.parseInt(request.getParameter("page"));
-            int limit = Integer.parseInt(request.getParameter("limit"));
-            String search = request.getParameter("search");
-            
-            // Fixed table name reference from booksData to lowercase booksdata
-            String baseQuery = "SELECT accession_number, book_name, author, publisher, edition, price FROM booksdata";
-            String countQuery = "SELECT COUNT(*) AS total FROM booksdata";
-            
-            if (search != null && !search.isEmpty()) {
-                String searchCondition = " WHERE book_name LIKE ? OR author LIKE ? OR publisher LIKE ? OR accession_number LIKE ?";
-                baseQuery += searchCondition;
-                countQuery += searchCondition;
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
+                
+                String countQuery = "SELECT COUNT(*) FROM booksdata";
+                String dataQuery = "SELECT accession_number, book_name, author, publisher, edition, price FROM booksdata";
+                
+                boolean hasSearch = (search != null && !search.trim().isEmpty());
+                if (hasSearch) {
+                    String searchFilter = " WHERE accession_number LIKE ? OR book_name LIKE ? OR author LIKE ? OR publisher LIKE ?";
+                    countQuery += searchFilter;
+                    dataQuery += searchFilter;
+                }
+                
+                dataQuery += " ORDER BY accession_number ASC LIMIT ? OFFSET ?";
+
+                // Get Total Count
+                int totalRecords = 0;
+                try (PreparedStatement countStmt = conn.prepareStatement(countQuery)) {
+                    if (hasSearch) {
+                        String likeSearch = "%" + search.trim() + "%";
+                        for (int i = 1; i <= 4; i++) countStmt.setString(i, likeSearch);
+                    }
+                    try (ResultSet rsCount = countStmt.executeQuery()) {
+                        if (rsCount.next()) totalRecords = rsCount.getInt(1);
+                    }
+                }
+
+                // Get Data
+                StringBuilder json = new StringBuilder();
+                json.append("{ \"totalRecords\": ").append(totalRecords).append(", \"data\": [");
+                
+                try (PreparedStatement dataStmt = conn.prepareStatement(dataQuery)) {
+                    int paramIndex = 1;
+                    if (hasSearch) {
+                        String likeSearch = "%" + search.trim() + "%";
+                        for (int i = 1; i <= 4; i++) dataStmt.setString(paramIndex++, likeSearch);
+                    }
+                    dataStmt.setInt(paramIndex++, limit);
+                    dataStmt.setInt(paramIndex, offset);
+
+                    try (ResultSet rs = dataStmt.executeQuery()) {
+                        boolean first = true;
+                        while (rs.next()) {
+                            if (!first) json.append(",");
+                            json.append("{");
+                            json.append("\"accession_number\":").append(rs.getInt("accession_number")).append(",");
+                            json.append("\"book_name\":\"").append(escapeJson(rs.getString("book_name"))).append("\",");
+                            json.append("\"author\":\"").append(escapeJson(rs.getString("author"))).append("\",");
+                            json.append("\"publisher\":\"").append(escapeJson(rs.getString("publisher"))).append("\",");
+                            json.append("\"edition\":\"").append(escapeJson(rs.getString("edition"))).append("\",");
+                            json.append("\"price\":").append(rs.getDouble("price"));
+                            json.append("}");
+                            first = false;
+                        }
+                    }
+                }
+                json.append("]}");
+                out.print(json.toString());
             }
-            
-            baseQuery += " ORDER BY book_name LIMIT ? OFFSET ?";
-            
-            int totalRecords = 0;
-            PreparedStatement countStmt = conn.prepareStatement(countQuery);
-            if (search != null && !search.isEmpty()) {
-                String searchParam = "%" + search + "%";
-                countStmt.setString(1, searchParam);
-                countStmt.setString(2, searchParam);
-                countStmt.setString(3, searchParam);
-                countStmt.setString(4, searchParam);
-            }
-            ResultSet countRs = countStmt.executeQuery();
-            if (countRs.next()) {
-                totalRecords = countRs.getInt("total");
-            }
-            countRs.close();
-            countStmt.close();
-            
-            stmt = conn.prepareStatement(baseQuery);
-            int paramIndex = 1;
-            if (search != null && !search.isEmpty()) {
-                String searchParam = "%" + search + "%";
-                stmt.setString(paramIndex++, searchParam);
-                stmt.setString(paramIndex++, searchParam);
-                stmt.setString(paramIndex++, searchParam);
-                stmt.setString(paramIndex++, searchParam);
-            }
-            stmt.setInt(paramIndex++, limit);
-            stmt.setInt(paramIndex++, (page - 1) * limit);
-            
-            rs = stmt.executeQuery();
-            
-            JSONObject result = new JSONObject();
-            result.put("totalRecords", totalRecords);
-            
-            JSONArray books = new JSONArray();
-            while (rs.next()) {
-                JSONObject book = new JSONObject();
-                book.put("accession_number", rs.getInt("accession_number"));
-                book.put("book_name", rs.getString("book_name"));
-                book.put("author", rs.getString("author"));
-                book.put("publisher", rs.getString("publisher"));
-                book.put("edition", rs.getString("edition"));
-                book.put("price", rs.getDouble("price"));
-                books.put(book);
-            }
-            
-            result.put("data", books);
-            response.getWriter().write(result.toString());
-            
         } catch (Exception e) {
-            sendError(response, "Database error: " + e.getMessage());
-        } finally {
-            closeResources(conn, stmt, rs);
+            out.print("{ \"error\": \"Database connection failed: " + escapeJson(e.getMessage()) + "\" }");
         }
     }
-    
-    private void sendError(HttpServletResponse response, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        JSONObject error = new JSONObject();
-        error.put("error", message);
-        response.getWriter().write(error.toString());
-    }
-    
-    private void closeResources(Connection conn, Statement stmt, ResultSet rs) {
-        try {
-            if (rs != null) rs.close();
-            if (stmt != null) stmt.close();
-            if (conn != null) conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+
+    private String escapeJson(String data) {
+        if (data == null) return "";
+        return data.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

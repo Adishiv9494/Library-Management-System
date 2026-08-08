@@ -1,11 +1,8 @@
-// ==========================================
-// 15. TotalStudentCount.java
-// ==========================================
 package BackendCode;
 
-import java.io.*;
+import java.io.IOException;
 import java.sql.*;
-import jakarta.servlet.*;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -14,30 +11,31 @@ public class TotalStudentCount extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        int totalCount = 0;
-        String[] tables = {"bca_students", "bba_students", "mba_students", "mca_students", "btech_students", "ptech_students"};
-
+        response.setContentType("text/plain");
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection con = DriverManager.getConnection(
-                "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&serverTimezone=UTC", "avnadmin", "HIDDEN_PASSWORD")) {
-
-                for (String table : tables) {
-                    try (Statement stmt = con.createStatement();
-                         ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + table)) {
-                        if (rs.next()) {
-                            totalCount += rs.getInt(1);
-                        }
-                    } catch (Exception ignored) {
-                        // Table might not exist yet
-                    }
-                }
+            Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
+            
+            // Accurately sum all students across all course tables
+            String query = "SELECT " +
+                           "(SELECT COUNT(*) FROM bba_students) + " +
+                           "(SELECT COUNT(*) FROM bca_students) + " +
+                           "(SELECT COUNT(*) FROM btech_students) + " +
+                           "(SELECT COUNT(*) FROM mba_students) + " +
+                           "(SELECT COUNT(*) FROM mca_students) + " +
+                           "(SELECT COUNT(*) FROM ptech_students) AS total_students";
+                           
+            PreparedStatement ps = conn.prepareStatement(query);
+            ResultSet rs = ps.executeQuery();
+            
+            if (rs.next()) {
+                response.getWriter().write(String.valueOf(rs.getInt("total_students")));
+            } else {
+                response.getWriter().write("0");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+            rs.close(); ps.close(); conn.close();
+        } catch (Exception e) { 
+            response.getWriter().write("0"); 
         }
-
-        response.setContentType("text/plain");
-        response.getWriter().write(String.valueOf(totalCount));
     }
 }
