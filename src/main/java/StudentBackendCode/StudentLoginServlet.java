@@ -52,7 +52,7 @@ public class StudentLoginServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.sendRedirect("Login.jsp");
+        response.sendRedirect("StudentSignup.jsp");
     }
 
     @Override

@@ -34,14 +34,14 @@ public class StudentSignupServlet extends HttpServlet {
 
     private static final String DB_URL = "jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC";
     private static final String DB_USER = "avnadmin";
-    private static final String DB_PASS = "HIDDEN_PASSWORD";
+    private static final String DB_PASS = "AVNS_M_y84BDpUY38oAAS0w1";
 
     private static final List<String> DISABLE_DEPT_COURSES = Arrays.asList("BCA", "BBA", "MBA", "MCA");
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.sendRedirect("Login.jsp");
+        response.sendRedirect("StudentSignup.jsp");
     }
 
     @Override
