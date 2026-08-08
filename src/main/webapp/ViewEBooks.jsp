@@ -3,7 +3,7 @@
 <%
     String rollNo = (String) session.getAttribute("crn");
     if (rollNo == null || rollNo.isEmpty()) {
-        response.sendRedirect("Login.jsp");
+        response.sendRedirect("StudentSignup.jsp");
         return;
     }
 %>
@@ -18,6 +18,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     
     <style>
         @import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap");
@@ -93,9 +94,6 @@
                     Class.forName("com.mysql.cj.jdbc.Driver");
                     conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
                     
-                    String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, author VARCHAR(255) NOT NULL, edition VARCHAR(100), description TEXT, pdf_url VARCHAR(500) NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)";
-                    try (Statement stmt = conn.createStatement()) { stmt.execute(createTableSQL); }
-                    
                     String query = "SELECT id, title, author, description, pdf_url FROM ebooks ORDER BY id DESC"; 
                     pstmt = conn.prepareStatement(query);
                     rs = pstmt.executeQuery();
@@ -122,7 +120,6 @@
                             <%= desc != null ? desc : "No description available." %>
                         </div>
                         <div class="action-buttons">
-                            <!-- Passing the context path directly to the script -->
                             <button class="btn btn-view" onclick="openPdfViewer('<%= safeTitle %>', '<%= request.getContextPath() %>', '<%= pdfUrl %>')">
                                 <i class="fas fa-eye me-1"></i> View
                             </button>
@@ -165,6 +162,7 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         const themeToggle = document.getElementById('themeToggle');
         const root = document.documentElement;
@@ -174,7 +172,6 @@
             else { root.setAttribute('data-bs-theme', 'dark'); themeToggle.innerHTML = '<i class="fas fa-sun text-warning"></i>'; localStorage.setItem('theme', 'dark'); }
         });
 
-        // FIXED: Handles the 404 issue by enforcing the context path prefix dynamically
         function formatPdfUrl(context, url) {
             if(url.startsWith('http://') || url.startsWith('https://')) return url;
             let formattedUrl = url.startsWith('/') ? url : '/' + url;
@@ -195,16 +192,44 @@
 
         function downloadEBook(ebookId, title, author, contextPath, rawUrl) {
             let finalUrl = formatPdfUrl(contextPath, rawUrl);
+            
             $.post("LogDownload.jsp", { 
                 ebookId: ebookId, title: title, author: author, pdfUrl: finalUrl
             }, function(response) {
-                const link = document.createElement('a');
-                link.href = finalUrl;
-                link.setAttribute('download', ''); 
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }).fail(function() { alert("Failed to record download. Please try again."); });
+                let res = response.trim();
+                
+                // Read the 'exists' response from the backend to stop duplicate downloads
+                if (res === "exists") {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Already Downloaded!',
+                        text: 'You have already downloaded this E-Book. Check your "My Downloads" section to access it.',
+                        confirmButtonColor: '#4e73df',
+                        confirmButtonText: 'Got it!'
+                    });
+                } 
+                // If it doesn't exist, proceed with download
+                else if (res === "success") {
+                    const link = document.createElement('a');
+                    link.href = finalUrl;
+                    link.setAttribute('download', ''); 
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Download Started',
+                        text: 'This E-Book has been added to your downloads list.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire('Error!', 'Failed to process request. Please try again.', 'error');
+                }
+            }).fail(function() { 
+                Swal.fire('Error!', 'Database failed to record download. Please try again.', 'error'); 
+            });
         }
     </script>
 </body>

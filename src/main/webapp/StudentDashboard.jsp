@@ -1,20 +1,18 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.sql.*" %>
 <%
-// 1. Set cache control headers to prevent back-button access after logout
 response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 response.setHeader("Pragma", "no-cache");
 response.setDateHeader("Expires", 0);
 
-// 2. Fetch session attributes set by StudentLoginServlet
 String fullName = (String) session.getAttribute("full_name");
 String email = (String) session.getAttribute("email");
 String rollNo = (String) session.getAttribute("crn"); 
 String profileImage = (String) session.getAttribute("profile_image");
 
-// 3. STRICT SECURITY CHECK: Redirect to Login if not authenticated
+// REDIRECT TO STUDENT SIGNUP INSTEAD OF LOGIN
 if (rollNo == null || rollNo.trim().isEmpty() || email == null) {
-    response.sendRedirect("Login.jsp");
+    response.sendRedirect("StudentSignup.jsp");
     return;
 }
 
@@ -34,48 +32,27 @@ try {
     Class.forName("com.mysql.cj.jdbc.Driver");
     conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
     
-    // Count 1: Issued Books (EXCLUDING RETURNED)
-    try {
-        try (PreparedStatement ps1 = conn.prepareStatement("SELECT COUNT(*) FROM book_issues WHERE crn = ? AND status = 'Issued'")) {
-            ps1.setString(1, rollNo);
-            try (ResultSet rs1 = ps1.executeQuery()) { if (rs1.next()) myIssuedCount = rs1.getInt(1); }
-        }
-    } catch(Exception e) {
-        // Fallback if status column doesn't exist or is named differently
-        try (PreparedStatement ps1 = conn.prepareStatement("SELECT COUNT(*) FROM book_issues WHERE crn = ? AND return_date IS NULL")) {
-            ps1.setString(1, rollNo);
-            try (ResultSet rs1 = ps1.executeQuery()) { if (rs1.next()) myIssuedCount = rs1.getInt(1); }
-        } catch(Exception ex) {}
-    }
+    // 1. My Issued Books
+    try (PreparedStatement ps1 = conn.prepareStatement("SELECT COUNT(*) FROM book_issues WHERE crn = ? AND status IN ('ISSUED', 'ON DUE', 'OVERDUE')")) {
+        ps1.setString(1, rollNo);
+        try (ResultSet rs1 = ps1.executeQuery()) { if (rs1.next()) myIssuedCount = rs1.getInt(1); }
+    } catch(Exception e) {}
     
-    // Count 2: Available Books Count
-    try {
-        try (PreparedStatement ps2 = conn.prepareStatement("SELECT COUNT(*) FROM booksdata WHERE accession_number NOT IN (SELECT accession_number FROM book_issues WHERE status = 'Issued')");
-             ResultSet rs2 = ps2.executeQuery()) {
-            if (rs2.next()) availableCount = rs2.getInt(1);
-        }
-    } catch (Exception e1) { }
+    // 2. Available Books
+    try (PreparedStatement ps2 = conn.prepareStatement("SELECT COUNT(*) FROM booksdata WHERE accession_number NOT IN (SELECT accession_number FROM book_issues WHERE status IN ('ISSUED', 'ON DUE', 'OVERDUE'))")) {
+        try (ResultSet rs2 = ps2.executeQuery()) { if (rs2.next()) availableCount = rs2.getInt(1); }
+    } catch (Exception e1) {}
     
-    // Count 3: Total E-Books 
-    try {
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS ebooks (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, author VARCHAR(255) NOT NULL, edition VARCHAR(100), description TEXT, pdf_url VARCHAR(500) NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)";
-        try (Statement stmt = conn.createStatement()) { stmt.execute(createTableSQL); }
-        
-        try (PreparedStatement ps3 = conn.prepareStatement("SELECT COUNT(*) FROM ebooks")) {
-            try (ResultSet rs3 = ps3.executeQuery()) { if (rs3.next()) ebooksCount = rs3.getInt(1); }
-        }
-    } catch(Exception e) { }
+    // 3. E-Books
+    try (PreparedStatement ps3 = conn.prepareStatement("SELECT COUNT(*) FROM ebooks")) {
+        try (ResultSet rs3 = ps3.executeQuery()) { if (rs3.next()) ebooksCount = rs3.getInt(1); }
+    } catch(Exception e) {}
     
-    // Count 4: Downloaded E-Books
-    try {
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS downloaded_ebooks (id INT AUTO_INCREMENT PRIMARY KEY, crn VARCHAR(50), ebook_id INT, title VARCHAR(255), author VARCHAR(255), pdf_url VARCHAR(500), downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)";
-        try (Statement stmt = conn.createStatement()) { stmt.execute(createTableSQL); }
-
-        try (PreparedStatement ps4 = conn.prepareStatement("SELECT COUNT(*) FROM downloaded_ebooks WHERE crn = ?")) {
-            ps4.setString(1, rollNo);
-            try (ResultSet rs4 = ps4.executeQuery()) { if (rs4.next()) downloadEBooksCount = rs4.getInt(1); }
-        }
-    } catch(Exception e) { }
+    // 4. Downloaded E-Books
+    try (PreparedStatement ps4 = conn.prepareStatement("SELECT COUNT(*) FROM downloaded_ebooks WHERE crn = ?")) {
+        ps4.setString(1, rollNo);
+        try (ResultSet rs4 = ps4.executeQuery()) { if (rs4.next()) downloadEBooksCount = rs4.getInt(1); }
+    } catch(Exception e) {}
 
 } catch(Exception e) {
 } finally {
@@ -91,17 +68,13 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="icon" type="image/x-icon" href="logo2.jpg">
     <title>Student Dashboard</title>
-    
     <style>
         @import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap");
-        
         * { font-family: "Ubuntu", sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
         :root { --blue: #2a2185; --white: #fff; --gray: #f5f5f5; --black1: #222; --black2: #999; --dark-bg: #1e1e1e; --dark-bg-card: #333; }
         body { min-height: 100vh; overflow-x: hidden; background: var(--gray); transition: background 0.3s ease; }
         .container { position: relative; width: 100%; }
-
-        /* Navigation Sidebar */
-        .navigation { position: fixed; width: 300px; height: 100%; background: var(--blue); border-left: 10px solid var(--blue); transition: 0.5s; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+        .navigation { position: fixed; width: 300px; height: 100%; background: var(--blue); border-left: 10px solid var(--blue); transition: 0.5s; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; z-index: 1000; }
         .navigation.active { width: 80px; }
         .navigation ul { width: 100%; flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 10px; }
         .navigation ul::-webkit-scrollbar { width: 5px; }
@@ -117,7 +90,6 @@ try {
         .navigation ul li a .title { position: relative; display: block; padding: 0 10px; height: 60px; line-height: 60px; text-align: start; white-space: nowrap; }
         .navigation ul li:hover a::before, .navigation ul li.hovered a::before { content: ""; position: absolute; right: 0; top: -50px; width: 50px; height: 50px; background-color: transparent; border-radius: 50%; box-shadow: 35px 35px 0 10px var(--gray); pointer-events: none; }
         .navigation ul li:hover a::after, .navigation ul li.hovered a::after { content: ""; position: absolute; right: 0; bottom: -50px; width: 50px; height: 50px; background-color: transparent; border-radius: 50%; box-shadow: 35px -35px 0 10px var(--gray); pointer-events: none; }
-
         .sidebar-profile { padding: 20px 10px; background: rgba(0, 0, 0, 0.15); border-top-left-radius: 20px; display: flex; flex-direction: column; align-items: center; color: var(--white); text-align: center; transition: 0.5s; margin-top: auto; flex-shrink: 0; }
         .navigation.active .sidebar-profile { padding: 20px 0; background: transparent; }
         .sidebar-profile .user-img { width: 70px; height: 70px; border-radius: 50%; background: var(--white); color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: bold; margin-bottom: 12px; overflow: hidden; border: 3px solid rgba(255, 255, 255, 0.4); }
@@ -132,15 +104,12 @@ try {
         .navigation.active .logout-btn { width: 45px; height: 45px; padding: 0; border-radius: 50%; }
         .navigation.active .logout-btn span { display: none; }
         .navigation.active .logout-btn ion-icon { font-size: 1.2rem; margin: 0; }
-
         .main { position: absolute; width: calc(100% - 300px); left: 300px; min-height: 100vh; background: transparent; transition: 0.5s; }
         .main.active { width: calc(100% - 80px); left: 80px; }
         .topbar { width: 100%; height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background: var(--white); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .toggle { position: relative; width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; cursor: pointer; color: var(--black1); }
-
         #mode-toggle { background: linear-gradient(115deg, #0a0a0a, #4e54c8); border: 2px solid rgba(255, 165, 0, 0.6); color: #ff6600; border-radius: 50%; font-size: 20px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0px 5px 15px rgba(255, 165, 0, 0.5); display: flex; align-items: center; justify-content: center; width: 45px; height: 45px; }
         #mode-toggle:hover { transform: scale(1.1); }
-
         .cardBox { position: relative; width: 100%; padding: 20px; display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 30px; }
         .cardBox .card { position: relative; background: var(--white); padding: 30px; border-radius: 20px; display: flex; justify-content: space-between; cursor: pointer; box-shadow: 0 7px 25px rgba(0, 0, 0, 0.08); transition: background 0.3s, transform 0.3s; }
         .cardBox .card .numbers { position: relative; font-weight: 500; font-size: 2.5rem; color: var(--red2); }
@@ -148,7 +117,6 @@ try {
         .cardBox .card .iconBx { font-size: 3.5rem; color: var(--black2); transition: color 0.3s; }
         .cardBox .card:hover { background: var(--blue); transform: translateY(-5px); }
         .cardBox .card:hover .numbers, .cardBox .card:hover .cardName, .cardBox .card:hover .iconBx { color: var(--white); }
-
         .gallery-container { width: 100%; max-width: 1000px; margin: 30px auto; padding: 20px; position: relative; overflow: hidden; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: var(--white); }
         .gallery-title { text-align: center; margin-bottom: 20px; font-size: 2rem; color: var(--blue); position: relative; }
         .gallery-title::after { content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 100px; height: 3px; background: var(--blue); }
@@ -158,7 +126,6 @@ try {
         .slider-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
         .slider-controls .dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.3s; }
         .slider-controls .dot.active { background: var(--blue); transform: scale(1.2); }
-
         body.dark-mode { background: #121212; color: white; }
         body.dark-mode .navigation { background-color: var(--dark-bg); border-left-color: var(--dark-bg); }
         body.dark-mode .navigation ul::-webkit-scrollbar-track { background: var(--dark-bg); }
@@ -173,7 +140,6 @@ try {
         body.dark-mode .navigation ul li:hover a::before, body.dark-mode .navigation ul li.hovered a::before { box-shadow: 35px 35px 0 10px #121212; }
         body.dark-mode .navigation ul li:hover a::after, body.dark-mode .navigation ul li.hovered a::after { box-shadow: 35px -35px 0 10px #121212; }
         body.dark-mode #mode-toggle { background: rgba(255, 255, 255, 0.1); color: white; border-color: white; box-shadow: none;}
-
         @media (max-width: 991px) { .navigation { left: -300px; } .navigation.active { width: 300px; left: 0; } .main { width: 100%; left: 0; } .main.active { left: 300px; } .cardBox { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) { .single-slide { height: 300px; } }
         @media (max-width: 480px) { .cardBox { grid-template-columns: repeat(1, 1fr); } .navigation { width: 100%; left: -100%; z-index: 1000; } .navigation.active { width: 100%; left: 0; } .toggle { z-index: 10001; } .main.active .toggle { color: #fff; position: fixed; right: 0; left: initial; } .single-slide { height: 200px; } .gallery-title { font-size: 1.5rem; } .slider-controls .dot { width: 10px; height: 10px; } }
@@ -242,7 +208,7 @@ try {
                                 
                 <div class="card" onclick="window.location.href='ViewEBooks.jsp'">
                     <div>
-                        <div class="numbers" id="eBooksCount"><%= ebooksCount %></div>
+                        <div class="numbers"><%= ebooksCount %></div>
                         <div class="cardName">Total E-Books</div>
                     </div>
                     <div class="iconBx"><ion-icon name="desktop-outline"></ion-icon></div>
@@ -276,30 +242,52 @@ try {
             document.addEventListener("DOMContentLoaded", () => {
                 const modeToggle = document.getElementById("mode-toggle");
                 const body = document.body;
-                if (localStorage.getItem("theme") === "dark") { body.classList.add("dark-mode"); modeToggle.innerHTML = "☀"; } else { body.classList.remove("dark-mode"); modeToggle.innerHTML = "🌙"; }
+                if (localStorage.getItem("theme") === "dark") { body.classList.add("dark-mode"); modeToggle.innerHTML = "☀"; } 
+                else { body.classList.remove("dark-mode"); modeToggle.innerHTML = "🌙"; }
                 modeToggle.addEventListener("click", () => {
                     body.classList.toggle("dark-mode");
-                    if (body.classList.contains("dark-mode")) { modeToggle.innerHTML = "☀"; localStorage.setItem("theme", "dark"); } else { modeToggle.innerHTML = "🌙"; localStorage.setItem("theme", "light"); }
+                    if (body.classList.contains("dark-mode")) { modeToggle.innerHTML = "☀"; localStorage.setItem("theme", "dark"); } 
+                    else { modeToggle.innerHTML = "🌙"; localStorage.setItem("theme", "light"); }
                 });
 
                 const toggle = document.querySelector(".toggle");
                 const navigation = document.querySelector(".navigation");
                 const main = document.querySelector(".main");
-                if (toggle && navigation && main) { toggle.onclick = function() { navigation.classList.toggle("active"); main.classList.toggle("active"); }; }
+                if (toggle && navigation && main) {
+                    toggle.onclick = function() { navigation.classList.toggle("active"); main.classList.toggle("active"); };
+                }
                 
                 const galleryContainer = document.querySelector('.single-slide');
                 if (galleryContainer) {
                     const images = galleryContainer.querySelectorAll('img');
                     const sliderControls = document.getElementById('slider-controls');
                     let currentIndex = 0; let autoSlideInterval;
-                    if (sliderControls) { images.forEach((_, index) => { const dot = document.createElement('div'); dot.classList.add('dot'); if (index === 0) dot.classList.add('active'); dot.addEventListener('click', () => goToSlide(index)); sliderControls.appendChild(dot); }); }
+                    if (sliderControls) {
+                        images.forEach((_, index) => {
+                            const dot = document.createElement('div');
+                            dot.classList.add('dot');
+                            if (index === 0) dot.classList.add('active');
+                            dot.addEventListener('click', () => goToSlide(index));
+                            sliderControls.appendChild(dot);
+                        });
+                    }
                     const dots = sliderControls ? sliderControls.querySelectorAll('.dot') : [];
-                    function goToSlide(index) { images[currentIndex].classList.remove('active'); if (dots.length > 0) dots[currentIndex].classList.remove('active'); currentIndex = index; images[currentIndex].classList.add('active'); if (dots.length > 0) dots[currentIndex].classList.add('active'); resetAutoSlide(); }
+                    function goToSlide(index) {
+                        images[currentIndex].classList.remove('active');
+                        if (dots.length > 0) dots[currentIndex].classList.remove('active');
+                        currentIndex = index;
+                        images[currentIndex].classList.add('active');
+                        if (dots.length > 0) dots[currentIndex].classList.add('active');
+                        resetAutoSlide();
+                    }
                     function nextSlide() { goToSlide((currentIndex + 1) % images.length); }
                     function startAutoSlide() { autoSlideInterval = setInterval(nextSlide, 3000); }
                     function resetAutoSlide() { clearInterval(autoSlideInterval); startAutoSlide(); }
-                    function initGallery() { images[0].classList.add('active'); if (dots.length > 0) dots[0].classList.add('active'); startAutoSlide(); galleryContainer.addEventListener('mouseenter', () => clearInterval(autoSlideInterval)); galleryContainer.addEventListener('mouseleave', startAutoSlide); }
-                    initGallery();
+                    images[0].classList.add('active');
+                    if (dots.length > 0) dots[0].classList.add('active');
+                    startAutoSlide();
+                    galleryContainer.addEventListener('mouseenter', () => clearInterval(autoSlideInterval));
+                    galleryContainer.addEventListener('mouseleave', startAutoSlide);
                 }
             });
             </script>
@@ -307,5 +295,38 @@ try {
             <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
         </div>
     </div>
+    
+    <!-- ===== AUTO LOGOUT SCRIPT ===== -->
+    <script>
+    (function() {
+        const idleLimit = 10 * 60 * 1000; // 10 minutes in milliseconds
+        let idleTimer;
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(autoLogout, idleLimit);
+        }
+
+        function autoLogout() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Session Expired',
+                text: 'You have been logged out due to 10 minutes of inactivity.',
+                timer: 3000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.href = 'StudentLogoutServlet';
+            });
+        }
+
+        // Listen for user activity
+        ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'].forEach(event => {
+            document.addEventListener(event, resetIdleTimer, true);
+        });
+
+        // Initialize the timer on page load
+        resetIdleTimer();
+    })();
+    </script>
 </body>
 </html>

@@ -8,13 +8,18 @@ response.setHeader("Pragma", "no-cache");
 response.setDateHeader("Expires", 0);
 
 // Get user details from session
-String username = (String) session.getAttribute("username");
 String email = (String) session.getAttribute("email");
 String firstName = (String) session.getAttribute("first_name");
 String lastName = (String) session.getAttribute("last_name");
 String contactNumber = (String) session.getAttribute("contact_number");
 String profileImage = (String) session.getAttribute("profile_image");
 String address = (String) session.getAttribute("address");
+
+// STRICT SECURITY CHECK
+if (email == null || email.trim().isEmpty()) {
+    response.sendRedirect("Login.jsp");
+    return;
+}
 
 String fullName = "";
 if (firstName != null && lastName != null) {
@@ -23,34 +28,29 @@ if (firstName != null && lastName != null) {
     fullName = firstName;
 } else if (lastName != null) {
     fullName = lastName;
-} else if (username != null) {
-    fullName = username;
+} else {
+    fullName = "Admin";
 }
 
-if (email == null) {
-    response.sendRedirect("welcome.jsp");
-    return;
-}
-
-String initials = "";
+String initials = "A";
 if (firstName != null && !firstName.isEmpty() && lastName != null && !lastName.isEmpty()) {
     initials = firstName.substring(0, 1).toUpperCase() + lastName.substring(0, 1).toUpperCase();
-} else if (username != null && !username.isEmpty()) {
-    initials = username.substring(0, 1).toUpperCase();
+} else if (firstName != null && !firstName.isEmpty()) {
+    initials = firstName.substring(0, 1).toUpperCase();
 }
 
-if (email == null || contactNumber == null || profileImage == null || address == null) {
+// Fetch Profile Data if missing
+if (contactNumber == null || profileImage == null || address == null) {
     try {
         Class.forName("com.mysql.cj.jdbc.Driver");
-        Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/library", "root", "Adishiv@7318");
+        Connection conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
         
-        String query = "SELECT email, first_name, last_name, contact_number, profile_image, address FROM lib_loginsignup WHERE email = ?";
+        String query = "SELECT first_name, last_name, contact_number, profile_image, address FROM lib_loginsignup WHERE email = ?";
         PreparedStatement pstmt = conn.prepareStatement(query);
-        pstmt.setString(1, username);
+        pstmt.setString(1, email); 
         
         ResultSet rs = pstmt.executeQuery();
         if (rs.next()) {
-            email = rs.getString("email");
             firstName = rs.getString("first_name");
             lastName = rs.getString("last_name");
             contactNumber = rs.getString("contact_number");
@@ -62,7 +62,6 @@ if (email == null || contactNumber == null || profileImage == null || address ==
                 session.setAttribute("profile_image", profileImage);
             }
             
-            session.setAttribute("email", email);
             session.setAttribute("first_name", firstName);
             session.setAttribute("last_name", lastName);
             session.setAttribute("contact_number", contactNumber);
@@ -87,29 +86,32 @@ if (email == null || contactNumber == null || profileImage == null || address ==
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
    
-    <link rel="icon" type="image/x-icon" href="lib.png">
+    <link rel="icon" type="image/x-icon" href="logo2.jpg">
     <title>Admin Dashboard</title>
     
    <style>
         @import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap");
         
         * { font-family: "Ubuntu", sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --blue: #2a2185; --white: #fff; --gray: #f5f5f5; --black1: #222; --black2: #999; }
+        
+        /* MATCHED EXACTLY WITH STUDENT DASHBOARD CSS VARIABLES */
+        :root { 
+            --blue: #2a2185; 
+            --white: #fff; 
+            --gray: #f5f5f5; 
+            --black1: #222; 
+            --black2: #999; 
+            --dark-bg: #1e1e1e; 
+            --dark-bg-card: #333; 
+        }
+        
         body { min-height: 100vh; overflow-x: hidden; background: var(--gray); transition: background 0.3s ease; }
         .container { position: relative; width: 100%; }
         
-        /* Navigation Styles */
-        .navigation { 
-            position: fixed; width: 300px; height: 100%; background: var(--blue); 
-            border-left: 10px solid var(--blue); transition: 0.5s; overflow: hidden; 
-            display: flex; flex-direction: column; justify-content: space-between; 
-        }
+        .navigation { position: fixed; width: 300px; height: 100%; background: var(--blue); border-left: 10px solid var(--blue); transition: 0.5s; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; z-index: 1000;}
         .navigation.active { width: 80px; }
         
-        /* Custom scrollbar for menu */
-        .navigation ul { 
-            width: 100%; flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 10px;
-        }
+        .navigation ul { width: 100%; flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 10px; }
         .navigation ul::-webkit-scrollbar { width: 5px; }
         .navigation ul::-webkit-scrollbar-track { background: var(--blue); }
         .navigation ul::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
@@ -127,140 +129,53 @@ if (email == null || contactNumber == null || profileImage == null || address ==
         .navigation ul li:hover a::before, .navigation ul li.hovered a::before { content: ""; position: absolute; right: 0; top: -50px; width: 50px; height: 50px; background-color: transparent; border-radius: 50%; box-shadow: 35px 35px 0 10px var(--white); pointer-events: none; }
         .navigation ul li:hover a::after, .navigation ul li.hovered a::after { content: ""; position: absolute; right: 0; bottom: -50px; width: 50px; height: 50px; background-color: transparent; border-radius: 50%; box-shadow: 35px -35px 0 10px var(--white); pointer-events: none; }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .sidebar-widget { margin: 5px; padding: 12px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; display: flex; align-items: center; justify-content: space-between; color: var(--white); transition: all 0.4s ease; overflow: hidden; flex-shrink: 0; }
+        body.dark-mode .sidebar-widget { background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.05); }
 
-        /* ===== SIDEBAR BOTTOM WIDGET ===== */
-        .sidebar-widget {
-            margin: 5px;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            color: var(--white);
-            transition: all 0.4s ease;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-
-        body.dark-mode .sidebar-widget {
-            background: rgba(0, 0, 0, 0.2);
-            border-color: rgba(255, 255, 255, 0.05);
-        }
-
-        .widget-profile-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            overflow: hidden;
-        }
-
-        .widget-user-img {
-            width: 45px;
-            height: 45px;
-            border-radius: 12px;
-            background: var(--white);
-            color: var(--blue);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: bold;
-            overflow: hidden;
-            flex-shrink: 0;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-
+        .widget-profile-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
+        .widget-user-img { width: 45px; height: 45px; border-radius: 12px; background: var(--white); color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .widget-user-img img { width: 100%; height: 100%; object-fit: cover; }
-
         .widget-text { display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; max-width: 120px; }
         .widget-text h4 { font-size: 0.95rem; color: var(--white); margin: 0; text-overflow: ellipsis; overflow: hidden; font-weight: 600; }
         .widget-text p { font-size: 0.75rem; color: rgba(255,255,255,0.7); margin: 0; text-overflow: ellipsis; overflow: hidden; }
 
-        .widget-logout-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: rgba(255, 71, 87, 0.2);
-            color: #ff4757;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            font-size: 1.3rem;
-            flex-shrink: 0;
-        }
+        .widget-logout-btn { width: 40px; height: 40px; border-radius: 10px; background: rgba(255, 71, 87, 0.2); color: #ff4757; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.3s ease; font-size: 1.3rem; flex-shrink: 0; }
+        .widget-logout-btn:hover { background: #ff4757; color: var(--white); transform: scale(1.05); box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4); }
 
-        .widget-logout-btn:hover {
-            background: #ff4757;
-            color: var(--white);
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
-        }
-
-        /* Collapsed Sidebar Styles */
-        .navigation.active .sidebar-widget {
-            margin: 10px;
-            flex-direction: column;
-            justify-content: center;
-            gap: 15px;
-            padding: 15px 0;
-            border-radius: 20px;
-        }
-
+        .navigation.active .sidebar-widget { margin: 10px; flex-direction: column; justify-content: center; gap: 15px; padding: 15px 0; border-radius: 20px; }
         .navigation.active .widget-text { display: none; }
         .navigation.active .widget-user-img { border-radius: 50%; width: 40px; height: 40px; }
         .navigation.active .widget-logout-btn { border-radius: 50%; width: 40px; height: 40px; }
 
-        /* Main Section */
         .main { position: absolute; width: calc(100% - 300px); left: 300px; min-height: 100vh; background: transparent; transition: 0.5s; }
         .main.active { width: calc(100% - 80px); left: 80px; }
         .topbar { width: 100%; height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
         .toggle { position: relative; width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; cursor: pointer; color: var(--black1); }
 
-        /* Theme Toggle Button */
         .top-actions { display: flex; align-items: center; gap: 15px; }
-
-        #mode-toggle { 
-            background: linear-gradient(115deg, #0a0a0a, #4e54c8); border: 2px solid rgba(255, 165, 0, 0.6); 
-            color: #ff6600; border-radius: 50%; font-size: 20px; cursor: pointer; transition: all 0.3s ease; 
-            box-shadow: 0px 5px 15px rgba(255, 165, 0, 0.5); display: flex; align-items: center; 
-            justify-content: center; width: 45px; height: 45px; 
-        }
+        #mode-toggle { background: linear-gradient(115deg, #0a0a0a, #4e54c8); border: 2px solid rgba(255, 165, 0, 0.6); color: #ff6600; border-radius: 50%; font-size: 20px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0px 5px 15px rgba(255, 165, 0, 0.5); display: flex; align-items: center; justify-content: center; width: 45px; height: 45px; }
         #mode-toggle:hover { transform: scale(1.1); }
 
-        /* Cards UI */
-        .cardBox { 
-            position: relative; width: 100%; padding: 20px; display: grid; grid-template-columns: repeat(5, 1fr); grid-gap: 15px; 
-        }
-        .cardBox .card { 
-            position: relative; background: var(--white); padding: 20px; border-radius: 20px; display: flex; 
-            justify-content: space-between; cursor: pointer; box-shadow: 0 7px 25px rgba(0, 0, 0, 0.08); transition: background 0.3s; 
-        }
+        /* MATCHED EXACTLY WITH STUDENT DASHBOARD CARDS */
+        .cardBox { position: relative; width: 100%; padding: 20px; display: grid; grid-template-columns: repeat(5, 1fr); grid-gap: 15px; }
+        .cardBox .card { position: relative; background: var(--white); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; cursor: pointer; box-shadow: 0 7px 25px rgba(0, 0, 0, 0.08); transition: background 0.3s; }
         .cardBox .card .numbers { position: relative; font-weight: 500; font-size: 2rem; color: var(--red2); }
         .cardBox .card .cardName { color: var(--black2); font-size: 0.95rem; margin-top: 5px; }
         .cardBox .card .iconBx { font-size: 2.5rem; color: var(--black2); }
         .cardBox .card:hover { background: var(--blue); }
         .cardBox .card:hover .numbers, .cardBox .card:hover .cardName, .cardBox .card:hover .iconBx { color: var(--white); }
 
-        /* Dark Mode */
         body.dark-mode { background: linear-gradient(115deg, #0a0a0a, #4e54c8); color: white; }
         body.dark-mode .navigation { background-color: #1e1e1e; color: white; border-left-color: #1e1e1e; }
         body.dark-mode .navigation ul::-webkit-scrollbar-track { background: #1e1e1e; }
         body.dark-mode .main { background: transparent; color: white; }
         body.dark-mode .card { background-color: #333; color: white; box-shadow: 0 7px 25px rgba(0, 0, 0, 0.5); }
         body.dark-mode .card .cardName, body.dark-mode .card .iconBx { color: #bbb; }
-        
         body.dark-mode .navigation ul li:hover a::before, body.dark-mode .navigation ul li.hovered a::before { box-shadow: 35px 35px 0 10px #1e1e1e; }
         body.dark-mode .navigation ul li:hover a::after, body.dark-mode .navigation ul li.hovered a::after { box-shadow: 35px -35px 0 10px #1e1e1e; }
-
         body.dark-mode #mode-toggle { background: rgba(255, 255, 255, 0.1); color: white; border-color: white; box-shadow: none; }
         body.dark-mode .toggle { color: var(--white); }
 
-        /* Image Slider */
         .gallery-container { width: 100%; max-width: 1000px; margin: 30px auto; padding: 20px; position: relative; overflow: hidden; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: var(--white); }
         .gallery-title { text-align: center; margin-bottom: 20px; font-size: 2rem; color: var(--blue); position: relative; }
         .gallery-title::after { content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 100px; height: 3px; background: var(--blue); }
@@ -276,7 +191,6 @@ if (email == null || contactNumber == null || profileImage == null || address ==
         body.dark-mode .slider-controls .dot { background: rgba(255,255,255,0.3); }
         body.dark-mode .slider-controls .dot.active { background: var(--white); }
 
-        /* Responsive scaling */
         @media (max-width: 1400px) { .cardBox { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 991px) {
             .navigation { left: -300px; }
@@ -407,7 +321,7 @@ if (email == null || contactNumber == null || profileImage == null || address ==
 
             <!-- ======================= Cards ================== -->
             <div class="cardBox">
-                <div class="card">
+                <div class="card" onclick="window.location.href='studentRecords.jsp'">
                     <div>
                         <div class="numbers" id="studentCount">0</div>
                         <div class="cardName">Total Students</div>
@@ -415,7 +329,7 @@ if (email == null || contactNumber == null || profileImage == null || address ==
                     <div class="iconBx"><ion-icon name="people-outline"></ion-icon></div>
                 </div>
 
-                <div class="card">
+                <div class="card" onclick="window.location.href='BooksRecords.jsp'">
                     <div>
                         <div class="numbers" id="bookCount">0</div>
                         <div class="cardName">Total Books</div>
@@ -423,7 +337,7 @@ if (email == null || contactNumber == null || profileImage == null || address ==
                     <div class="iconBx"><ion-icon name="book-outline"></ion-icon></div>
                 </div>
 
-                <div class="card">
+                <div class="card" onclick="window.location.href='AllIssuedBooks.jsp'">
                     <div>
                         <div class="numbers" id="issuedBookCount">0</div>
                         <div class="cardName">Issued Books</div>
@@ -431,9 +345,9 @@ if (email == null || contactNumber == null || profileImage == null || address ==
                     <div class="iconBx"><ion-icon name="book-outline"></ion-icon></div>
                 </div>
                 
-                <div class="card">
+                <div class="card" onclick="window.location.href='BooksRecords.jsp'">
                     <div>
-                        <div class="numbers" id="pendingCount">0</div>
+                        <div class="numbers" id="availableBookCount">0</div>
                         <div class="cardName">Available Books</div>
                     </div>
                     <div class="iconBx"><ion-icon name="file-tray-full-outline"></ion-icon></div>
@@ -542,34 +456,81 @@ if (email == null || contactNumber == null || profileImage == null || address ==
         </div>
     </div>
     
+<!-- ===== PERFECT LIVE COUNT SCRIPT ===== -->
 <script>
-  function fetchPendingBooksCount() {
-    fetch('AvailableBooksCount')
-      .then(response => { if (!response.ok) throw new Error('Available books count fetch failed'); return response.text(); })
-      .then(count => { document.getElementById("pendingCount").innerText = count; })
-      .catch(error => { document.getElementById("pendingCount").innerText = "0"; });
-  }
-
-  function fetchEBooksCount() {
-    fetch('EBookActionServlet?action=count')
-      .then(response => response.text())
-      .then(count => { document.getElementById("eBooksCount").innerText = count || "0"; })
-      .catch(error => { document.getElementById("eBooksCount").innerText = "0"; });
+  function fetchCountsSafely(endpoint, elementId) {
+    fetch(endpoint)
+      .then(response => {
+          if (!response.ok) throw new Error('Fetch failed');
+          return response.text();
+      })
+      .then(count => {
+          let el = document.getElementById(elementId);
+          if(el) el.innerText = count.trim() || "0";
+      })
+      .catch(error => {
+          let el = document.getElementById(elementId);
+          if(el && el.innerText === "") el.innerText = "0";
+      });
   }
 
   function initializeCounts() {
-    fetch('BooksCount').then(r => r.text()).then(c => document.getElementById("bookCount").innerText = c).catch(() => document.getElementById("bookCount").innerText = "0");
-    fetch('TotalStudentCount').then(r => r.text()).then(c => document.getElementById("studentCount").innerText = c).catch(() => document.getElementById("studentCount").innerText = "0");
-    // Fixed endpoint name to match @WebServlet("/IssuedBooksCount")
-    fetch('IssuedBooksCount').then(r => r.text()).then(c => document.getElementById("issuedBookCount").innerText = c).catch(() => document.getElementById("issuedBookCount").innerText = "0");
-    fetchPendingBooksCount();
-    fetchEBooksCount(); 
+    fetchCountsSafely('BooksCount', 'bookCount');
+    fetchCountsSafely('TotalStudentCount', 'studentCount');
+    fetchCountsSafely('IssuesBooksCount', 'issuedBookCount');
+    fetchCountsSafely('EBookActionServlet?action=count', 'eBooksCount');
+
+    // Dynamically Calculates Available Books instantly
+    Promise.all([
+        fetch('BooksCount').then(r => r.ok ? r.text() : "0"),
+        fetch('IssuesBooksCount').then(r => r.ok ? r.text() : "0")
+    ]).then(([total, issued]) => {
+        let available = parseInt(total.trim() || 0) - parseInt(issued.trim() || 0);
+        let el = document.getElementById('availableBookCount');
+        if(el) el.innerText = available >= 0 ? available : 0;
+    }).catch(err => {
+        let el = document.getElementById('availableBookCount');
+        if(el && el.innerText === "") el.innerText = "0";
+    });
   }
 
   document.addEventListener("DOMContentLoaded", function() {
     initializeCounts();
-    setInterval(initializeCounts, 60000);
+    setInterval(initializeCounts, 60000); // Live refresh every 60s
   });
+</script>
+
+<!-- ===== AUTO LOGOUT SCRIPT ===== -->
+<script>
+(function() {
+    const idleLimit = 10 * 60 * 1000; // 10 minutes in milliseconds
+    let idleTimer;
+
+    function resetIdleTimer() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(autoLogout, idleLimit);
+    }
+
+    function autoLogout() {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Session Expired',
+            text: 'You have been logged out due to 10 minutes of inactivity.',
+            timer: 3000,
+            showConfirmButton: false
+        }).then(() => {
+            window.location.href = 'LogoutServlet';
+        });
+    }
+
+    // Listen for user activity
+    ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'].forEach(event => {
+        document.addEventListener(event, resetIdleTimer, true);
+    });
+
+    // Initialize the timer on page load
+    resetIdleTimer();
+})();
 </script>
 </body>
 </html>

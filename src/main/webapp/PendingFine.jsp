@@ -56,7 +56,7 @@
                         </div>
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
-                                <thead><tr><th>CRN</th><th>Student Name</th><th>Contact</th><th>Due Date</th><th>Total Fine (₹)</th><th>Status</th></tr></thead>
+                                <thead><tr><th>CRN</th><th>Student Name</th><th>Accession No.</th><th>Contact</th><th>Due Date</th><th>Total Fine (₹)</th><th>Status</th></tr></thead>
                                 <tbody id="pendingFineBody"><tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr></tbody>
                             </table>
                         </div>
@@ -104,6 +104,7 @@
                                 html += '<tr>' +
                                             '<td>' + d.crn + '</td>' +
                                             '<td>' + d.name + '</td>' +
+                                            '<td>' + d.accession + '</td>' +
                                             '<td>' + (d.contact || 'N/A') + '</td>' +
                                             '<td>' + (d.dueDate || 'N/A') + '</td>' +
                                             '<td class="fine-amount ' + (fine > 500 ? 'fine-critical' : '') + '">₹' + fine.toFixed(2) + '</td>' +

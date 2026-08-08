@@ -1,156 +1,134 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="java.sql.*, java.text.SimpleDateFormat" %>
+<%
+    String adminEmail = (String) session.getAttribute("email");
+    if (adminEmail == null || adminEmail.trim().isEmpty()) {
+        response.sendRedirect("Login.jsp");
+        return;
+    }
+%>
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Fine & Defaulters</title>
     <link rel="icon" type="image/x-icon" href="logo2.jpg">
-    <title>Defaulter Students</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
-        :root { --primary-color: #4e73df; --secondary-color: #858796; --danger-color: #e74a3b; }
-        [data-bs-theme="dark"] { --bs-body-bg: #1a1a2e; --bs-body-color: #f8f9fa; --card-bg: #16213e; }
-        [data-bs-theme="light"] { --bs-body-bg: #f8f9fa; --bs-body-color: #212529; --card-bg: #ffffff; }
-        body { background-color: var(--bs-body-bg); color: var(--bs-body-color); transition: all 0.3s ease; }
-        .card { background-color: var(--card-bg); border: none; border-radius: 0.75rem; box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.1); }
-        .table th { background-color: var(--danger-color); color: white; }
-        .defaulter-badge { background-color: var(--danger-color); color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: bold; }
-        .back-btn:hover { transform: translateX(-3px); transition: all 0.3s; }
-        .theme-toggle:hover { transform: rotate(15deg); transition: all 0.3s; }
-        @media print { .no-print { display: none !important; } }
+        @import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap");
+        body { font-family: 'Ubuntu', sans-serif; background-color: #f8f9fa; transition: all 0.3s ease; }
+        [data-bs-theme="dark"] body { background-color: #1a1a2e; color: #f8f9fa; }
+        .card { border-radius: 15px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        [data-bs-theme="dark"] .card { background-color: #16213e; }
+        .back-btn { transition: all 0.3s ease; }
+        .back-btn:hover { transform: translateX(-3px); }
+        .table-light th { background-color: rgba(231, 76, 60, 0.1); color: #e74c3c; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em; border-top: none; }
+        [data-bs-theme="dark"] .table-light th { background-color: rgba(231, 76, 60, 0.2); }
     </style>
 </head>
 <body>
-    <div class="container py-4">
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <button class="btn btn-outline-primary back-btn no-print" onclick="window.history.back()">
-                        <i class="fas fa-arrow-left me-2"></i>Back
-                    </button>
-                    <h2 class="text-center mb-0 fw-bold" style="color: var(--danger-color);">
-                        <i class="fas fa-exclamation-triangle me-2"></i>Defaulter Students
-                    </h2>
-                    <div class="d-flex gap-2 no-print">
-                        <button class="btn btn-outline-success" id="printPdfBtn"><i class="fas fa-file-pdf me-2"></i>Print</button>
-                        <button id="themeToggle" class="btn btn-outline-secondary theme-toggle"><i class="fas fa-moon"></i></button>
-                    </div>
-                </div>
-            </div>
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <button class="btn btn-outline-danger back-btn" onclick="window.location.href='Dashboard.jsp'">
+                <i class="fas fa-arrow-left me-2"></i>Dashboard
+            </button>
+            <h2 class="mb-0 fw-bold" style="color: #e74c3c;">
+                <i class="fas fa-exclamation-triangle me-2"></i>Pending Fines & Defaulters
+            </h2>
+            <div></div>
         </div>
 
-        <div class="row justify-content-center">
-            <div class="col-lg-12">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead><tr><th>CRN</th><th>Name</th><th>Course</th><th>Contact</th><th>Status</th></tr></thead>
-                                <tbody id="defaultersTable"><tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+        <div class="card p-4">
+            <div class="table-responsive">
+                <table id="defaulterTable" class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>S.No.</th>
+                            <th>CRN No.</th>
+                            <!-- ADDED ACCESSION NO. COLUMN -->
+                            <th>Accession No.</th>
+                            <th>Student Name</th>
+                            <th>Course</th>
+                            <th>Book Title</th>
+                            <th>Due Date</th>
+                            <th>Fine (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <%
+                            Connection conn = null;
+                            PreparedStatement pstmt = null;
+                            ResultSet rs = null;
+                            try {
+                                Class.forName("com.mysql.cj.jdbc.Driver");
+                                conn = DriverManager.getConnection("jdbc:mysql://library-db-service-adihpcl9598-1e40.k.aivencloud.com:18683/defaultdb?useSSL=true&requireSSL=true&autoReconnect=true&failOverReadOnly=false&serverTimezone=UTC", "avnadmin", "AVNS_M_y84BDpUY38oAAS0w1");
+                                
+                                String query = "SELECT crn, accession_number, student_name, course, book_title, due_date, fine_amount, status FROM book_issues WHERE status IN ('OVERDUE', 'DEFAULTER') ORDER BY due_date ASC";
+                                pstmt = conn.prepareStatement(query);
+                                rs = pstmt.executeQuery();
+                                
+                                SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy");
+                                long currentTime = System.currentTimeMillis();
+                                int count = 1;
+                                
+                                while (rs.next()) {
+                                    Date dueDate = rs.getDate("due_date");
+                                    double storedFine = rs.getDouble("fine_amount");
+                                    
+                                    long dynamicFine = 0;
+                                    if (dueDate != null && currentTime > dueDate.getTime()) {
+                                        long diffDays = (currentTime - dueDate.getTime()) / (1000 * 60 * 60 * 24);
+                                        dynamicFine = diffDays * 10; 
+                                    }
+                                    
+                                    long displayFine = Math.max(dynamicFine, (long)storedFine);
+                        %>
+                        <tr>
+                            <!-- Exactly 8 Columns matching 8 headers -->
+                            <td class="text-muted fw-bold"><%= count++ %></td>
+                            <td><span class="badge bg-secondary"><%= rs.getString("crn") %></span></td>
+                            <!-- Added Accession Number Result -->
+                            <td><strong><%= rs.getInt("accession_number") %></strong></td>
+                            <td><%= rs.getString("student_name") %></td>
+                            <td><%= rs.getString("course") %></td>
+                            <td><%= rs.getString("book_title") %></td>
+                            <td class="text-danger"><%= dueDate != null ? sdf.format(dueDate) : "N/A" %></td>
+                            <td><span class="badge bg-danger fs-6">₹ <%= displayFine %></span></td>
+                        </tr>
+                        <%
+                                }
+                            } catch (Exception e) {
+                                // Handled to prevent DataTables crash
+                            } finally {
+                                try { if (rs != null) rs.close(); } catch (SQLException e) { }
+                                try { if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
+                                try { if (conn != null) conn.close(); } catch (SQLException e) { }
+                            }
+                        %>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js"></script>
     <script>
         $(document).ready(function() {
-            function initTheme() {
-                const savedTheme = localStorage.getItem('theme') || 'light';
-                $('html').attr('data-bs-theme', savedTheme);
-                $('#themeToggle i').removeClass('fa-moon fa-sun').addClass(savedTheme === 'dark' ? 'fa-sun' : 'fa-moon');
-            }
-            $('#themeToggle').click(function() {
-                const currentTheme = $('html').attr('data-bs-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                $('html').attr('data-bs-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                $('#themeToggle i').removeClass('fa-moon fa-sun').addClass(newTheme === 'dark' ? 'fa-sun' : 'fa-moon');
+            $('#defaulterTable').DataTable({
+                "pageLength": 10,
+                "ordering": true,
+                "info": true,
+                "responsive": true
             });
-            initTheme();
-
-            function loadDefaulters() {
-                $.ajax({
-                    url: 'DefaulterStudentsServlet',
-                    type: 'POST',
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.success && response.data.length > 0) {
-                            let html = '';
-                            response.data.forEach(function(d) {
-                                html += '<tr><td>' + d.crn + '</td><td>' + d.studentName + '</td><td>' + d.course + '</td><td>' + d.contact + '</td><td><span class="defaulter-badge">' + d.status + '</span></td></tr>';
-                            });
-                            $('#defaultersTable').html(html);
-                        } else {
-                            $('#defaultersTable').html('<tr><td colspan="5" class="text-center">No defaulter students found</td></tr>');
-                        }
-                    },
-                    error: function() { $('#defaultersTable').html('<tr><td colspan="5" class="text-center text-danger">Error loading data</td></tr>'); }
-                });
+            
+            if (localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) { 
+                document.documentElement.setAttribute('data-bs-theme', 'dark'); 
             }
-            loadDefaulters();
-
-            $('#printPdfBtn').click(function() {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'pt', 'a4');
-                const logoUrl = 'logo2.jpg';
-                const img = new Image();
-                img.src = logoUrl;
-                img.onload = function() {
-                    const maxWidth = 100;
-                    const ratio = maxWidth / img.width;
-                    const logoWidth = maxWidth;
-                    const logoHeight = img.height * ratio;
-                    doc.addImage(img, 'PNG', 40, 20, logoWidth, logoHeight);
-                    doc.setFontSize(18);
-                    doc.setTextColor(40);
-                    doc.setFont("helvetica", "bold");
-                    doc.text("Defaulter Students", 40 + logoWidth + 20, 20 + (logoHeight / 2));
-                    const now = new Date();
-                    doc.setFontSize(10);
-                    doc.setFont("helvetica", "normal");
-                    doc.text("Generated on: " + now.toLocaleString(), 40 + logoWidth + 20, 20 + (logoHeight / 2) + 20);
-                    doc.setDrawColor(200,200,200);
-                    doc.line(40, 20 + logoHeight + 20, doc.internal.pageSize.width - 40, 20 + logoHeight + 20);
-                    const headers = ["CRN", "Student Name", "Course", "Contact", "Status"];
-                    const data = [];
-                    $('#defaultersTable tr').each(function() {
-                        const rowData = [];
-                        $(this).find('td').each(function() {
-                            rowData.push($(this).text().trim());
-                        });
-                        if (rowData.length > 0 && rowData[0] !== 'No defaulter students found') data.push(rowData);
-                    });
-                    doc.autoTable({
-                        startY: 20 + logoHeight + 40,
-                        head: [headers],
-                        body: data,
-                        styles: { fontSize: 10, cellPadding: 4 },
-                        headStyles: { fillColor: [231,74,59], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                        columnStyles: { 0: { halign: 'center' }, 4: { halign: 'center' } },
-                        margin: { top: 20 + logoHeight + 40, left: 40, right: 40 },
-                        didDrawPage: function(data) {
-                            doc.setFontSize(10);
-                            doc.setTextColor(150);
-                            doc.text('Page ' + data.pageNumber + ' of ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 20);
-                        }
-                    });
-                    doc.save("Defaulter_Students_" + new Date().toISOString().slice(0,10) + ".pdf");
-                    Swal.fire({ icon: 'success', title: 'PDF Generated', text: 'Defaulter records exported', timer: 2000, showConfirmButton: false });
-                };
-                img.onerror = function() {
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'Logo not found. PDF generated without logo.' });
-                };
-            });
         });
     </script>
 </body>
